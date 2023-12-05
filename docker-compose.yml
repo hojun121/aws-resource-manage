@@ -1,20 +1,16 @@
 version: '3'
 
 services:
-  steampipe:
-    image: steampipe-dashboard
-    container_name: steampipe-dashboard
+  aws-insights:
+    image: steampipe-aws-insights
+    container_name: steampipe-aws-insights
     build:
       context: .
-      args:
-        PLUGINS: aws
+      dockerfile: Dockerfile.aws-insights
     command: ["steampipe", "service", "start", "--foreground", "--dashboard", "--dashboard-listen=network"]
     restart: unless-stopped
     ports:
-      - 9193:9193
       - 9194:9194
-    volumes:
-      - ./conf/steampipe:/home/steampipe/.steampipe/config # ./conf/steampipe include STEAMPIPE_WORKSPACE setting values
     environment:
       - STEAMPIPE_DATABASE_PASSWORD=steampipe
       - STEAMPIPE_CACHE=true
@@ -22,7 +18,32 @@ services:
       - STEAMPIPE_CACHE_TTL=300
       - STEAMPIPE_QUERY_TIMEOUT=120
       - STEAMPIPE_MAX_PARALLEL=10
-      - STEAMPIPE_WORKSPACE=aws_insights # aws_insights, aws_compliance
+      - AWS_REGION=${AWS_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+  aws-compliance:
+    image: steampipe-aws-compliance
+    container_name: steampipe-aws-compliance
+    build:
+      context: .
+      dockerfile: Dockerfile.aws-compliance
+    command: ["steampipe", "service", "start", "--foreground", "--dashboard", "--dashboard-listen=network"]
+    restart: unless-stopped
+    ports:
+      - 9195:9194
+    environment:
+      - STEAMPIPE_DATABASE_PASSWORD=steampipe
+      - STEAMPIPE_CACHE=true
+      - STEAMPIPE_CACHE_MAX_SIZE_MB=4096
+      - STEAMPIPE_CACHE_TTL=300
+      - STEAMPIPE_QUERY_TIMEOUT=120
+      - STEAMPIPE_MAX_PARALLEL=10
+      - AWS_REGION=${AWS_REGION}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
     logging:
