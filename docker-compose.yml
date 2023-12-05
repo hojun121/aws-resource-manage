@@ -10,6 +10,7 @@ services:
     command: ["steampipe", "service", "start", "--foreground", "--dashboard", "--dashboard-listen=network"]
     restart: unless-stopped
     ports:
+      - 9193:9193
       - 9194:9194
     environment:
       - STEAMPIPE_DATABASE_PASSWORD=steampipe
@@ -35,7 +36,8 @@ services:
     command: ["steampipe", "service", "start", "--foreground", "--dashboard", "--dashboard-listen=network"]
     restart: unless-stopped
     ports:
-      - 9195:9194
+      - 9195:9193
+      - 9196:9194
     environment:
       - STEAMPIPE_DATABASE_PASSWORD=steampipe
       - STEAMPIPE_CACHE=true
@@ -46,6 +48,17 @@ services:
       - AWS_REGION=${AWS_REGION}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+  metabase-dashboard:
+    image: metabase/metabase
+    container_name: metabase
+    restart: unless-stopped
+    ports:
+      - 3000:3000
     logging:
       driver: "json-file"
       options:
