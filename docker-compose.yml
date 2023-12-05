@@ -8,14 +8,13 @@ services:
       context: .
       args:
         PLUGINS: aws
-    # command: ["service", "start", "--foreground", "--show-password"]
     command: ["steampipe", "service", "start", "--foreground", "--dashboard", "--dashboard-listen=network"]
     restart: unless-stopped
     ports:
       - 9193:9193
       - 9194:9194
     volumes:
-      - ./conf/steampipe:/home/steampipe/.steampipe/config
+      - ./conf/steampipe:/home/steampipe/.steampipe/config # ./conf/steampipe include STEAMPIPE_WORKSPACE setting values
     environment:
       - STEAMPIPE_DATABASE_PASSWORD=steampipe
       - STEAMPIPE_CACHE=true
