@@ -24,7 +24,7 @@ RUN echo "steampipe ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Install Steampipe plugins as steampipe user
 USER steampipe
-RUN steampipe plugin install steampipe aws
+RUN steampipe plugin install steampipe aws && sudo apt-get install vim -y
 
 # Return to root to set up entrypoint and run Metabase
 USER root
