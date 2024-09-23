@@ -75,6 +75,7 @@ def identify_files(upload_folder):
                             files_dict[key].append(file_path)
                         else:
                             files_dict[key] = [file_path]
+
                         break
     return files_dict
 
