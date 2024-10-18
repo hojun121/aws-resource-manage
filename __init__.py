@@ -121,12 +121,12 @@ def process_and_save_sheets():
                 transformed_data = load_and_transform_security_groups_data(sg_data, sgrule_data)
                 transformed_data.to_excel(writer, sheet_name='Security Groups', index=False)
 
-            # # Network ACLs 모듈 처리
-            # network_acls_data = pd.read_sql(queries['nacls'], engine)
-            # if not network_acls_data.empty:
-            #     transformed_data = load_and_transform_network_acls_data(network_acls_data)
-            #     transformed_data.to_excel(writer, sheet_name='Network ACLs', index=False)
-            #
+            # Network ACLs 모듈 처리
+            network_acls_data = pd.read_sql(queries['nacls'], engine)
+            if not network_acls_data.empty:
+                transformed_data = load_and_transform_network_acls_data(network_acls_data)
+                transformed_data.to_excel(writer, sheet_name='Network ACLs', index=False)
+
             # # EC2 모듈 처리
             # ec2_data = pd.read_sql(queries['ec2'], engine)
             # if not ec2_data.empty:
