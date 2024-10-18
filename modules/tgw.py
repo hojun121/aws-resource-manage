@@ -2,33 +2,31 @@ import pandas as pd
 import json
 
 
-def transform_tgw_data(tgw_csv_file):
-    """TGW 데이터를 변환합니다."""
-    # CSV 파일을 DataFrame으로 읽어옵니다
-    csv_data = pd.read_csv(tgw_csv_file, encoding='utf-8')
-    csv_data = csv_data.fillna('')  # NaN 값을 빈 문자열로 대체합니다
+def transform_tgw_data(tgw_data):
 
     # 선택된 열과 변환된 데이터를 포함한 새로운 DataFrame 생성
     transformed_data = pd.DataFrame({
-        'Transit Gateway ID': csv_data['Transit Gateway ID'],
-        'Name': csv_data['Title'],
-        'State': csv_data['State'],
-        'Region': csv_data['Region'],
-        'Default Association Route Table': csv_data['Default Route Table Association'],
-        'Default Propagation Route Table': csv_data['Default Route Table Propagation'],
-        'Transit Gateway CIDR Blocks': csv_data['Cidr Blocks'].apply(lambda x: '-' if not x else x),
-        'Association Route Table ID': csv_data['Association Default Route Table ID'].apply(lambda x: '-' if not x else x),
-        'Propagation Route Table ID': csv_data['Propagation Default Route Table ID'].apply(lambda x: '-' if not x else x),
-        'Multicast Support': csv_data['Multicast Support'],
-        'DNS Support': csv_data['Dns Support'],
-        'Auto Accept Shared Attachments': csv_data['Auto Accept Shared Attachments'],
-        'VPN ECMP Support': csv_data['Vpn Ecmp Support'],
-        'Compared with Last Month': '-'
+        'Name': tgw_data['title'],
+        'ID': tgw_data['transit_gateway_id'],
+        'State': tgw_data['state'],
+        'Region': tgw_data['region'],
+        'Default Association Route Table': tgw_data['default_route_table_association'],
+        'Default Propagation Route Table': tgw_data['default_route_table_propagation'],
+        'Transit Gateway CIDR Blocks': tgw_data['cidr_blocks'].apply(lambda x: 'None' if not x else x),
+        'Association Route Table ID': tgw_data['association_default_route_table_id'].apply(
+            lambda x: 'None' if not x else x),
+        'Propagation Route Table ID': tgw_data['propagation_default_route_table_id'].apply(
+            lambda x: 'None' if not x else x),
+        'Multicast Support': tgw_data['multicast_support'],
+        'DNS Support': tgw_data['dns_support'],
+        'Auto Accept Shared Attachments': tgw_data['auto_accept_shared_attachments'],
+        'VPN ECMP Support': tgw_data['vpn_ecmp_support'],
     })
+
+    transformed_data = transformed_data.sort_values(by='Name', ascending=False)
 
     return transformed_data
 
 
-def load_and_transform_tgw_data(tgw_csv_file):
-    """TGW 데이터를 로드하고 변환합니다."""
-    return transform_tgw_data(tgw_csv_file)
+def load_and_transform_tgw_data(tgw_data):
+    return transform_tgw_data(tgw_data)
