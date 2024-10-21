@@ -42,7 +42,7 @@ upload_folder = 'file/upload'  # 업로드 폴더 경로
 today = datetime.today().strftime('%y%m%d')
 os.makedirs('file/download', exist_ok=True)
 
-schema = "saleshub_prod"  # 여기서 schema 이름을 지정
+schema = "dmpro_prod"  # 여기서 schema 이름을 지정
 
 # Path to the output Excel file
 output_excel_path = os.path.join('file/download', f'{schema}_inventory_{today}.xlsx')
@@ -60,6 +60,7 @@ queries = {
     'sgrule': f'SELECT * FROM {schema}.aws_vpc_security_group_rule',
     'nacls': f'SELECT * FROM {schema}.aws_vpc_network_acl',
     'ec2': f'SELECT * FROM {schema}.aws_ec2_instance',
+    'ebs': f'SELECT * FROM {schema}.aws_ebs_volume',
     'alb': f'SELECT * FROM {schema}.aws_ec2_classic_load_balancer',
     'nlb': f'SELECT * FROM {schema}.aws_ec2_network_load_balancer',
     'tg': f'SELECT * FROM {schema}.aws_ec2_target_group',
@@ -127,12 +128,13 @@ def process_and_save_sheets():
                 transformed_data = load_and_transform_network_acls_data(network_acls_data)
                 transformed_data.to_excel(writer, sheet_name='Network ACLs', index=False)
 
-            # # EC2 모듈 처리
-            # ec2_data = pd.read_sql(queries['ec2'], engine)
-            # if not ec2_data.empty:
-            #     transformed_data = load_and_transform_ec2_data(ec2_data)
-            #     transformed_data.to_excel(writer, sheet_name='EC2', index=False)
-            #
+            # EC2 모듈 처리
+            ec2_data = pd.read_sql(queries['ec2'], engine)
+            ebs_data = pd.read_sql(queries['ebs'], engine)
+            if not ec2_data.empty:
+                transformed_data = load_and_transform_ec2_data(ec2_data, ebs_data)
+                transformed_data.to_excel(writer, sheet_name='EC2', index=False)
+
             # # ELB 모듈 처리
             # alb_data = pd.read_sql(queries['alb'], engine)
             # nlb_data = pd.read_sql(queries['nlb'], engine)
@@ -202,7 +204,6 @@ def process_and_save_sheets():
             #     transformed_data = load_and_transform_docdb_data(docdbcluster_data, docdbinstance_data)
             #     transformed_data.to_excel(writer, sheet_name='DocumentDB', index=False)
 
-        # Adjust column widths, style the header, center-align cells, and add borders
         wb = openpyxl.load_workbook(output_excel_path)
         for sheet in wb.sheetnames:
             ws = wb[sheet]
@@ -215,20 +216,32 @@ def process_and_save_sheets():
     except Exception as e:
         print(f"Error occurred: {e}")
 
+def adjust_column_widths(sheet):
+    for column in sheet.columns:
+        max_length = 0
+        column_name = column[0].value
+        for cell in column:
+            try:
+                if cell.value is not None:
+                    max_length = max(max_length, len(str(cell.value)))
+            except:
+                pass
+        if column_name == 'Tags':
+            adjusted_width = 50
+        else:
+            adjusted_width = max_length + 2
+        sheet.column_dimensions[column[0].column_letter].width = adjusted_width
 
 def style_header(sheet):
-    # 헤더 행에 녹색 배경색과 흰색 글자색 설정
     header_fill = PatternFill(start_color="334d1d", end_color="334d1d", fill_type="solid")
     header_font = Font(color="FFFFFF")
 
-    for cell in sheet[1]:  # 첫 번째 행(헤더)
+    for cell in sheet[1]:
         cell.fill = header_fill
         cell.font = header_font
         cell.alignment = Alignment(vertical='center')
 
-
 def apply_borders(sheet):
-    # 셀에 실선 테두리 적용
     thin_border = Border(left=Side(style='thin'), right=Side(style='thin'),
                          top=Side(style='thin'), bottom=Side(style='thin'))
 
@@ -238,24 +251,15 @@ def apply_borders(sheet):
 
 
 def center_align_cells(sheet):
-    # 모든 셀을 가로, 세로 중앙 정렬
-    for row in sheet.iter_rows():
-        for cell in row:
-            cell.alignment = Alignment(vertical='center')
-
-
-def adjust_column_widths(sheet):
-    for column in sheet.columns:
-        max_length = 0
-        column_letter = column[0].column_letter  # Get the column name
-        for cell in column:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(cell.value)
-            except:
-                pass
-        adjusted_width = (max_length + 2)  # Add some padding
-        sheet.column_dimensions[column_letter].width = adjusted_width
+    for col_idx, col in enumerate(sheet.iter_cols(min_row=1, max_row=1), start=1):
+        if col[0].value == "Tags":
+            for row in sheet.iter_rows(min_col=col_idx, max_col=col_idx, min_row=2, max_row=sheet.max_row):
+                for cell in row:
+                    cell.alignment = Alignment(horizontal='right', vertical='center')
+        else:
+            for row in sheet.iter_rows(min_col=col_idx, max_col=col_idx, min_row=2, max_row=sheet.max_row):
+                for cell in row:
+                    cell.alignment = Alignment(vertical='center')
 
 
 if __name__ == '__main__':
