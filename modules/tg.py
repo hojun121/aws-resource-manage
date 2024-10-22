@@ -1,68 +1,106 @@
 import pandas as pd
-import json
 
 
-def check_availability_zones(azs):
-    """Availability Zones이 있는지 확인하여 'Yes' 또는 'No' 반환"""
-    return 'Yes' if pd.notna(azs) and azs.strip() and azs != '[]' else 'No'
-
-
-def extract_target_health_states(json_string):
-    """Target Health Descriptions JSON 문자열에서 State 값을 추출하여 상태를 평가합니다."""
+def extract_target_health_states(target_health_data):
     try:
-        if pd.isna(json_string) or not json_string.strip():
-            return ''
+        if target_health_data is None or len(target_health_data) == 0:
+            return 'none'
 
-        data = json.loads(json_string)
-        if isinstance(data, list):
-            states = [item.get('TargetHealth', {}).get('State', '') for item in data]
+        states = [item['TargetHealth']['State'] for item in target_health_data if 'TargetHealth' in item]
 
-            if not states:
-                return ''
-            if all(state == 'healthy' for state in states):
-                return 'healthy'
-            elif any(state == 'unhealthy' for state in states):
-                return 'partially unhealthy'
-            else:
-                return 'unknown'
-        return ''
-    except json.JSONDecodeError as e:
-        print(f"JSON 디코딩 오류 발생: {e}")
-        return ''
+        if not states:
+            return 'none'
+
+        if all(state == 'healthy' for state in states):
+            return 'healthy'
+        elif any(state == 'unhealthy' for state in states):
+            return 'partially unhealthy'
+        else:
+            return 'unknown'
     except Exception as e:
-        print(f"기타 오류 발생: {e}")
+        print(f"tg.py > extract_target_health_states(): {e}")
         return ''
 
 
-def transform_target_group_data(target_group_csv_file):
-    """Target Groups CSV 데이터를 변환하여 필요한 정보를 추출"""
-    # CSV 파일을 DataFrame으로 읽기
-    csv_data = pd.read_csv(target_group_csv_file, encoding='utf-8')
+def extract_az(target_health_descriptions, autoscaling_data, ec2_data):
+    if len(target_health_descriptions) == 1:
+        target = target_health_descriptions[0].get('Target', {})
+        availability_zone = target.get('AvailabilityZone')
 
-    # csv_data가 DataFrame인 경우, 각 열에 대해 NaN 또는 빈 값 처리
-    csv_data = csv_data.fillna('')
+        if availability_zone == "all":
+            return "All"
 
-    # DataFrame 생성
+        if availability_zone is not None:
+            return availability_zone
+
+        target_id = target.get('Id')
+
+        if target_id and isinstance(target_id, str):
+            def is_valid_ip(ip):
+                parts = ip.split('.')
+                return len(parts) == 4 and all(part.isdigit() and 0 <= int(part) <= 255 for part in parts)
+
+            if is_valid_ip(target_id):
+                matching_row = ec2_data[ec2_data['private_ip_address'] == target_id]
+                if not matching_row.empty:
+                    return matching_row['placement_availability_zone'].values[0]
+            else:
+                matching_row = ec2_data[ec2_data['instance_id'] == target_id]
+                if not matching_row.empty:
+                    return matching_row['placement_availability_zone'].values[0]
+
+    elif len(target_health_descriptions) > 1:
+        target_ids = []
+        for item in target_health_descriptions:
+            if 'Target' in item and 'Id' in item['Target']:
+                target_id = item['Target']['Id']
+                if isinstance(target_id, str) and target_id.count('.') == 3:
+                    matching_row = ec2_data[ec2_data['private_ip_address'] == target_id]
+                    if not matching_row.empty:
+                        target_ids.append(matching_row['instance_id'].values[0])
+                else:
+                    target_ids.append(target_id)
+        matching_rows = autoscaling_data[
+            autoscaling_data['instances'].apply(
+                lambda x: all(instance['InstanceId'] in target_ids for instance in x)
+            )
+        ]
+
+        if not matching_rows.empty:
+            placed_availability_zones = []
+            for target_id in target_ids:
+                matching_instances = ec2_data[ec2_data['instance_id'] == target_id]
+                placed_availability_zones.extend(matching_instances['placement_availability_zone'].tolist())
+            unique_zones = sorted(set(placed_availability_zones))
+            return "\n".join(unique_zones)
+
+    return "(Type Here)"
+
+
+def transform_target_group_data(target_group_data,autoscaling_data, ec2_data):
     transformed_data = pd.DataFrame({
-        'Name': csv_data['Target Group Name'],
-        'Protocol': csv_data['Protocol'],
-        'Target Type': csv_data['Target Type'],
-        'Load Balancer': csv_data['Load Balancer Arns'].apply(lambda x: ', '.join(json.loads(x)) if pd.notna(x) and x.strip() else ''),
-        'VPC ID': csv_data['Vpc ID'],
-        'Healthy Threshold Count': csv_data['Healthy Threshold Count'],
-        'Unhealthy Threshold Count': csv_data['Unhealthy Threshold Count'],
-        'Health Check Enabled': csv_data['Health Check Enabled'],
-        'Health Check Interval Seconds': csv_data['Health Check Interval Seconds'],
-        'Health Check Path': csv_data['Health Check Path'],
-        'Health Check Port': csv_data['Health Check Port'],
-        'Health Check Protocol': csv_data['Health Check Protocol'],
-        'Health Check Timeout Seconds': csv_data['Health Check Timeout Seconds'],
-        'Target Health States': csv_data['Target Health Descriptions'].apply(extract_target_health_states),
-        'Compared with Last Month': '-'
+        'Name': target_group_data['target_group_name'],
+        'Protocol': target_group_data['protocol'],
+        'Target Type': target_group_data['target_type'],
+        'Load Balancer Arn': target_group_data['load_balancer_arns'].apply(
+        lambda x: ', '.join(x) if isinstance(x, list) and x else ''),
+        'VPC ID': target_group_data['vpc_id'],
+        'Healthy Threshold Count': target_group_data['healthy_threshold_count'],
+        'Unhealthy Threshold Count': target_group_data['unhealthy_threshold_count'],
+        'Health Check Enabled': target_group_data['health_check_enabled'],
+        'Health Check Interval Seconds': target_group_data['health_check_interval_seconds'],
+        'Health Check Path': target_group_data['health_check_path'],
+        'Health Check Port': target_group_data['health_check_port'],
+        'Health Check Protocol': target_group_data['health_check_protocol'],
+        'Health Check Timeout Seconds': target_group_data['health_check_timeout_seconds'],
+        'Target Health States': target_group_data['target_health_descriptions'].apply(extract_target_health_states),
+        'AZ': target_group_data.apply(lambda row: extract_az(row['target_health_descriptions'], autoscaling_data, ec2_data), axis=1),
     })
+
+    transformed_data = transformed_data.sort_values(by='Name', ascending=False)
 
     return transformed_data
 
 
-def load_and_transform_target_group_data(target_group_csv_file):
-    return transform_target_group_data(target_group_csv_file)
+def load_and_transform_target_group_data(target_group_data, autoscaling_data, ec2_data):
+    return transform_target_group_data(target_group_data, autoscaling_data, ec2_data)

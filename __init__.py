@@ -21,12 +21,11 @@ from modules.elb import load_and_transform_elb_data
 from modules.iamrole import load_and_transform_iam_role_data
 from modules.iamuser import load_and_transform_iam_user_data
 from modules.iamgroup import load_and_transform_iam_group_data
-from modules.network_acls import load_and_transform_network_acls_data
+from modules.nacl import load_and_transform_nacl_data
 from modules.s3 import load_and_transform_s3_data
 from modules.tg import load_and_transform_target_group_data
 from modules.rds import load_and_transform_rds_data
 
-# PostgreSQL 연결 설정
 DB_URI = 'postgresql://steampipe:ebf2_4830_b346@localhost:9193/steampipe'
 try:
     engine = create_engine(DB_URI)
@@ -37,125 +36,116 @@ except Exception as e:
     print(f"Error occurred: {e}")
     sys.exit(1)
 
-# 파일 디렉토리 설정
-upload_folder = 'file/upload'  # 업로드 폴더 경로
+upload_folder = 'file/upload'
 today = datetime.today().strftime('%y%m%d')
 os.makedirs('file/download', exist_ok=True)
 
-schema = "saleshub_prod"  # 여기서 schema 이름을 지정
+# Type Your DB Schema OR Set your Environment Path Here
+schema = "saleshub_prod"
 
-# Path to the output Excel file
 output_excel_path = os.path.join('file/download', f'{schema}_inventory_{today}.xlsx')
 
 queries = {
-    'vpc': f'SELECT * FROM {schema}.aws_vpc',
-    'igw': f'SELECT * FROM {schema}.aws_vpc_internet_gateway',
-    'ngw': f'SELECT * FROM {schema}.aws_vpc_nat_gateway',
-    'pc': f'SELECT * FROM {schema}.aws_vpc_peering_connection',
-    'vep': f'SELECT * FROM {schema}.aws_vpc_endpoint',
-    'tgw': f'SELECT * FROM {schema}.aws_ec2_transit_gateway',
-    'subnet': f'SELECT * FROM {schema}.aws_vpc_subnet',
-    'rt': f'SELECT * FROM {schema}.aws_vpc_route_table',
-    'sg': f'SELECT * FROM {schema}.aws_vpc_security_group',
-    'sgrule': f'SELECT * FROM {schema}.aws_vpc_security_group_rule',
-    'nacls': f'SELECT * FROM {schema}.aws_vpc_network_acl',
-    'ec2': f'SELECT * FROM {schema}.aws_ec2_instance',
-    'ebs': f'SELECT * FROM {schema}.aws_ebs_volume',
     'alb': f'SELECT * FROM {schema}.aws_ec2_application_load_balancer',
-    'nlb': f'SELECT * FROM {schema}.aws_ec2_network_load_balancer',
-    'lbl': f'SELECT * FROM {schema}.aws_ec2_load_balancer_listener',
-    'tg': f'SELECT * FROM {schema}.aws_ec2_target_group',
     'autoscaling': f'SELECT * FROM {schema}.aws_ec2_autoscaling_group',
-    'ec': f'SELECT * FROM {schema}.aws_elasticache_cluster',
     'cloudfront': f'SELECT * FROM {schema}.aws_cloudfront_cache_policy',
-    's3': f'SELECT * FROM {schema}.aws_s3_bucket',
+    'docdbcluster': f'SELECT * FROM {schema}.aws_docdb_cluster_instance',
+    'docdbinstance': f'SELECT * FROM {schema}.aws_docdb_cluster_instance',
+    'ebs': f'SELECT * FROM {schema}.aws_ebs_volume',
+    'ec': f'SELECT * FROM {schema}.aws_elasticache_cluster',
+    'ec2': f'SELECT * FROM {schema}.aws_ec2_instance',
+    'igw': f'SELECT * FROM {schema}.aws_vpc_internet_gateway',
     'iamgroup': f'SELECT * FROM {schema}.aws_iam_group',
     'iamrole': f'SELECT * FROM {schema}.aws_iam_role',
     'iamuser': f'SELECT * FROM {schema}.aws_iam_access_key',
+    'lbl': f'SELECT * FROM {schema}.aws_ec2_load_balancer_listener',
+    'ngw': f'SELECT * FROM {schema}.aws_vpc_nat_gateway',
+    'nacl': f'SELECT * FROM {schema}.aws_vpc_network_acl',
+    'nlb': f'SELECT * FROM {schema}.aws_ec2_network_load_balancer',
+    'pc': f'SELECT * FROM {schema}.aws_vpc_peering_connection',
     'rdscluster': f'SELECT * FROM {schema}.aws_rds_db_cluster',
     'rdsinstance': f'SELECT * FROM {schema}.aws_rds_db_instance',
-    'docdbcluster': f'SELECT * FROM {schema}.aws_docdb_cluster_instance',
-    'docdbinstance': f'SELECT * FROM {schema}.aws_docdb_cluster_instance'
+    'rt': f'SELECT * FROM {schema}.aws_vpc_route_table',
+    'sg': f'SELECT * FROM {schema}.aws_vpc_security_group',
+    'sgrule': f'SELECT * FROM {schema}.aws_vpc_security_group_rule',
+    's3': f'SELECT * FROM {schema}.aws_s3_bucket',
+    'subnet': f'SELECT * FROM {schema}.aws_vpc_subnet',
+    'tg': f'SELECT * FROM {schema}.aws_ec2_target_group',
+    'tgw': f'SELECT * FROM {schema}.aws_ec2_transit_gateway',
+    'vep': f'SELECT * FROM {schema}.aws_vpc_endpoint',
+    'vpc': f'SELECT * FROM {schema}.aws_vpc',
 }
 
 
 def process_and_save_sheets():
     try:
+
+        alb_data = pd.read_sql(queries['alb'], engine)
+        autoscaling_data = pd.read_sql(queries['autoscaling'], engine)
+        ec2_data = pd.read_sql(queries['ec2'], engine)
+        ebs_data = pd.read_sql(queries['ebs'], engine)
+        igw_data = pd.read_sql(queries['igw'], engine)
+        lbl_data = pd.read_sql(queries['lbl'], engine)
+        ngw_data = pd.read_sql(queries['ngw'], engine)
+        nlb_data = pd.read_sql(queries['nlb'], engine)
+        nacl_data = pd.read_sql(queries['nacl'], engine)
+        pc_data = pd.read_sql(queries['pc'], engine)
+        rt_data = pd.read_sql(queries['rt'], engine)
+        sg_data = pd.read_sql(queries['sg'], engine)
+        sgrule_data = pd.read_sql(queries['sgrule'], engine)
+        subnet_data = pd.read_sql(queries['subnet'], engine)
+        tg_data = pd.read_sql(queries['tg'], engine)
+        tgw_data = pd.read_sql(queries['tgw'], engine)
+        vep_data = pd.read_sql(queries['vep'], engine)
+        vpc_data = pd.read_sql(queries['vpc'], engine)
+
         with pd.ExcelWriter(output_excel_path, engine='xlsxwriter') as writer:
-            # VPC 모듈 처리
-            vpc_data = pd.read_sql(queries['vpc'], engine)
-            igw_data = pd.read_sql(queries['igw'], engine)
-            ngw_data = pd.read_sql(queries['ngw'], engine)
             if not vpc_data.empty:
                 transformed_data = load_and_transform_vpc_data(vpc_data, igw_data, ngw_data)
                 transformed_data.to_excel(writer, sheet_name='VPC', index=False)
 
-            # VPC Endpoint 모듈 처리
-            vep_data = pd.read_sql(queries['vep'], engine)
             if not vep_data.empty:
                 transformed_data = load_and_transform_vep_data(vep_data)
                 transformed_data.to_excel(writer, sheet_name='VPC Endpoint', index=False)
 
-            # Peering Connection 모듈 처리
-            pc_data = pd.read_sql(queries['pc'], engine)
             if not pc_data.empty:
                 transformed_data = load_and_transform_pc_data(pc_data)
                 transformed_data.to_excel(writer, sheet_name='Peering Connection', index=False)
 
-            # TGW (Transit Gateway) 모듈 처리
-            tgw_data = pd.read_sql(queries['tgw'], engine)
             if not tgw_data.empty:
                 transformed_data = load_and_transform_tgw_data(tgw_data)
                 transformed_data.to_excel(writer, sheet_name='Transit Gateway', index=False)
 
-            # Subnet 모듈 처리
-            subnet_data = pd.read_sql(queries['subnet'], engine)
-            rt_data = pd.read_sql(queries['rt'], engine)
-            network_acl_data = pd.read_sql(queries['nacls'], engine)
             if not subnet_data.empty:
-                transformed_data = load_and_transform_subnet_data(subnet_data, rt_data, network_acl_data)
+                transformed_data = load_and_transform_subnet_data(subnet_data, rt_data, nacl_data)
                 transformed_data.to_excel(writer, sheet_name='Subnet', index=False)
 
-            # Security Groups 모듈 처리
-            sg_data = pd.read_sql(queries['sg'], engine)
-            sgrule_data = pd.read_sql(queries['sgrule'], engine)
             if not sg_data.empty:
                 transformed_data = load_and_transform_security_groups_data(sg_data, sgrule_data)
                 transformed_data.to_excel(writer, sheet_name='Security Groups', index=False)
 
-            # Network ACLs 모듈 처리
-            network_acls_data = pd.read_sql(queries['nacls'], engine)
-            if not network_acls_data.empty:
-                transformed_data = load_and_transform_network_acls_data(network_acls_data)
+            if not nacl_data.empty:
+                transformed_data = load_and_transform_nacl_data(nacl_data)
                 transformed_data.to_excel(writer, sheet_name='Network ACLs', index=False)
 
-            # EC2 모듈 처리
-            ec2_data = pd.read_sql(queries['ec2'], engine)
-            ebs_data = pd.read_sql(queries['ebs'], engine)
             if not ec2_data.empty:
                 transformed_data = load_and_transform_ec2_data(ec2_data, ebs_data)
                 transformed_data.to_excel(writer, sheet_name='EC2', index=False)
 
-            # ELB 모듈 처리
-            alb_data = pd.read_sql(queries['alb'], engine)
-            nlb_data = pd.read_sql(queries['nlb'], engine)
-            lbl_data = pd.read_sql(queries['lbl'], engine)
             if not alb_data.empty or not nlb_data.empty:
                 transformed_data = load_and_transform_elb_data(alb_data, nlb_data, lbl_data)
                 transformed_data.to_excel(writer, sheet_name='ELB', index=False)
 
-            # # Target Group 모듈 처리
-            # tg_data = pd.read_sql(queries['tg'], engine)
-            # if not tg_data.empty:
-            #     transformed_data = load_and_transform_target_group_data(tg_data)
-            #     transformed_data.to_excel(writer, sheet_name='Target Group', index=False)
-            #
-            # # Autoscaling 모듈 처리
-            # autoscaling_data = pd.read_sql(queries['autoscaling'], engine)
-            # if not autoscaling_data.empty:
-            #     transformed_data = load_and_transform_autoscaling_data(autoscaling_data)
-            #     transformed_data.to_excel(writer, sheet_name='Auto Scaling', index=False)
-            #
+            if not tg_data.empty:
+                transformed_data = load_and_transform_target_group_data(tg_data, autoscaling_data, ec2_data)
+                transformed_data.to_excel(writer, sheet_name='Target Group', index=False)
+
+            # Autoscaling 모듈 처리
+            autoscaling_data = pd.read_sql(queries['autoscaling'], engine)
+            if not autoscaling_data.empty:
+                transformed_data = load_and_transform_autoscaling_data(autoscaling_data)
+                transformed_data.to_excel(writer, sheet_name='Auto Scaling', index=False)
+
             # # Elasticache 모듈 처리
             # ec_data = pd.read_sql(queries['ec'], engine)
             # if not ec_data.empty:
