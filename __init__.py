@@ -42,7 +42,7 @@ upload_folder = 'file/upload'  # 업로드 폴더 경로
 today = datetime.today().strftime('%y%m%d')
 os.makedirs('file/download', exist_ok=True)
 
-schema = "dmpro_prod"  # 여기서 schema 이름을 지정
+schema = "saleshub_prod"  # 여기서 schema 이름을 지정
 
 # Path to the output Excel file
 output_excel_path = os.path.join('file/download', f'{schema}_inventory_{today}.xlsx')
@@ -61,8 +61,9 @@ queries = {
     'nacls': f'SELECT * FROM {schema}.aws_vpc_network_acl',
     'ec2': f'SELECT * FROM {schema}.aws_ec2_instance',
     'ebs': f'SELECT * FROM {schema}.aws_ebs_volume',
-    'alb': f'SELECT * FROM {schema}.aws_ec2_classic_load_balancer',
+    'alb': f'SELECT * FROM {schema}.aws_ec2_application_load_balancer',
     'nlb': f'SELECT * FROM {schema}.aws_ec2_network_load_balancer',
+    'lbl': f'SELECT * FROM {schema}.aws_ec2_load_balancer_listener',
     'tg': f'SELECT * FROM {schema}.aws_ec2_target_group',
     'autoscaling': f'SELECT * FROM {schema}.aws_ec2_autoscaling_group',
     'ec': f'SELECT * FROM {schema}.aws_elasticache_cluster',
@@ -135,13 +136,14 @@ def process_and_save_sheets():
                 transformed_data = load_and_transform_ec2_data(ec2_data, ebs_data)
                 transformed_data.to_excel(writer, sheet_name='EC2', index=False)
 
-            # # ELB 모듈 처리
-            # alb_data = pd.read_sql(queries['alb'], engine)
-            # nlb_data = pd.read_sql(queries['nlb'], engine)
-            # if not alb_data.empty or not nlb_data.empty:
-            #     transformed_data = load_and_transform_elb_data(alb_data, nlb_data)
-            #     transformed_data.to_excel(writer, sheet_name='ELB', index=False)
-            #
+            # ELB 모듈 처리
+            alb_data = pd.read_sql(queries['alb'], engine)
+            nlb_data = pd.read_sql(queries['nlb'], engine)
+            lbl_data = pd.read_sql(queries['lbl'], engine)
+            if not alb_data.empty or not nlb_data.empty:
+                transformed_data = load_and_transform_elb_data(alb_data, nlb_data, lbl_data)
+                transformed_data.to_excel(writer, sheet_name='ELB', index=False)
+
             # # Target Group 모듈 처리
             # tg_data = pd.read_sql(queries['tg'], engine)
             # if not tg_data.empty:
@@ -226,8 +228,12 @@ def adjust_column_widths(sheet):
                     max_length = max(max_length, len(str(cell.value)))
             except:
                 pass
-        if column_name == 'Tags':
+        if column_name == 'Tag':
             adjusted_width = 50
+        elif column_name == 'Listener From':
+            adjusted_width = 15
+        elif column_name == 'Listener To':
+            adjusted_width = 30
         else:
             adjusted_width = max_length + 2
         sheet.column_dimensions[column[0].column_letter].width = adjusted_width
@@ -252,7 +258,7 @@ def apply_borders(sheet):
 
 def center_align_cells(sheet):
     for col_idx, col in enumerate(sheet.iter_cols(min_row=1, max_row=1), start=1):
-        if col[0].value == "Tags":
+        if col[0].value == "Tag":
             for row in sheet.iter_rows(min_col=col_idx, max_col=col_idx, min_row=2, max_row=sheet.max_row):
                 for cell in row:
                     cell.alignment = Alignment(horizontal='right', vertical='center')

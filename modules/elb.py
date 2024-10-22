@@ -1,112 +1,105 @@
 import pandas as pd
-import json
 
 
-def parse_availability_zones(availability_zones):
-    """가용 영역 JSON을 파싱하여 쉼표로 구분된 문자열로 반환합니다."""
+def extract_cross_zone(load_balancer_attributes):
     try:
-        if pd.isna(availability_zones) or not availability_zones.strip():
-            return ''
-        zones = json.loads(availability_zones)
-        return ', '.join([zone['ZoneName'] for zone in zones if 'ZoneName' in zone])
-    except json.JSONDecodeError as e:
-        print(f"가용 영역 JSON 디코딩 오류: {e}")
-        return ''
+        for attribute in load_balancer_attributes:
+            if attribute['Key'] == 'load_balancing.cross_zone.enabled' and attribute['Value'].lower() == 'true':
+                return 'Yes'
+        return 'No'
     except Exception as e:
-        print(f"가용 영역 파싱 중 예상치 못한 오류 발생: {e}")
+        print(f"elb.py > extract_cross_zone(): {e}")
         return ''
 
 
-def parse_security_groups(security_groups):
-    """보안 그룹 JSON을 파싱하여 쉼표로 구분된 문자열로 반환합니다."""
+def extract_access_log(load_balancer_attributes):
     try:
-        if pd.isna(security_groups) or not security_groups.strip():
-            return ''
-        groups = json.loads(security_groups)
-        return ', '.join(groups)
-    except json.JSONDecodeError as e:
-        print(f"보안 그룹 JSON 디코딩 오류: {e}")
-        return ''
+        for attribute in load_balancer_attributes:
+            if attribute['Key'] == 'access_logs.s3.enabled' and attribute['Value'].lower() == 'true':
+                return 'Yes'
+        return 'No'
     except Exception as e:
-        print(f"보안 그룹 파싱 중 예상치 못한 오류 발생: {e}")
+        print(f"elb.py > extract_access_log(): {e}")
+        return ''
+
+
+def extract_listener_from(arn, lbl_data):
+    try:
+        matching_rows = lbl_data[lbl_data['load_balancer_arn'] == arn]
+        listen_from = matching_rows.apply(lambda row: f"{row['protocol']}:{row['port']}", axis=1)
+        listen_from_str = "\n".join(listen_from)
+        return listen_from_str if listen_from_str else ''
+
+    except Exception as e:
+        print(f"elb.py > extract_listener_from(): {e}")
+        return ''
+
+
+def extract_listener_to(arn, lbl_data):
+    try:
+        matching_rows = lbl_data[lbl_data['load_balancer_arn'] == arn]
+        listen_to = []
+
+        for _, row in matching_rows.iterrows():
+            for action in row['default_actions']:
+                if 'TargetGroupArn' in action:
+                    target_group_arn = action['TargetGroupArn']
+                    target_group_name = target_group_arn.split('/')[-2]
+                    listen_to.append(target_group_name)
+
+        listen_to_str = "\n".join(listen_to)
+        return listen_to_str if listen_to_str else ''
+
+    except Exception as e:
+        print(f"extract_listener_to() Error: {e}")
         return ''
 
 
 def format_tags(tags):
     """태그를 알파벳 순서로 정렬하여 형식화합니다. 빈 태그는 '-'로 표기합니다."""
     try:
-        # 태그 데이터가 None이거나 빈 문자열인 경우 '-' 반환
-        if pd.isna(tags) or not tags.strip():
-            return '-'
-
-        # JSON 파싱 시도
-        tag_dict = json.loads(tags)
-
-        # 태그가 딕셔너리 형태일 때
-        if isinstance(tag_dict, dict):
-            # 딕셔너리의 키-값 쌍을 알파벳 순서로 정렬
-            sorted_tags = sorted(tag_dict.items(), key=lambda item: item[0])
-
-            # 알파벳 순서로 정렬된 태그를 형식화
-            formatted_tags = ', '.join(f"{k}: {v}" for k, v in sorted_tags)
-            return formatted_tags if formatted_tags else '-'
-
-        else:
-            # 예상치 못한 형식일 때
-            print(f"예상치 못한 JSON 형식: {tags}")
-            return '-'
-
-    except json.JSONDecodeError as e:
-        print(f"JSON 디코딩 오류 발생: {e}")
-        return '-'
+        sorted_tags = sorted(tags.items(), key=lambda item: item[0])
+        formatted_tags = ', '.join(f"{k}: {v}" for k, v in sorted_tags)
+        return formatted_tags if formatted_tags else '-'
     except Exception as e:
-        print(f"태그 처리 중 예상치 못한 오류 발생: {e}")
+        print(f"ec2.py → format_tags() : {e}")
         return '-'
 
 
-def transform_load_balancer_data(csv_file, elb_type):
-    """로드 밸런서 데이터를 변환합니다."""
-    # CSV 파일을 DataFrame으로 읽어옵니다
-    data = pd.read_csv(csv_file, encoding='utf-8')
-    data = data.fillna('')  # NaN 값을 빈 문자열로 대체합니다
+def transform_load_balancer_data(lb_data, elb_type, lbl_data):
+    try:
+        transformed_data = pd.DataFrame({
+            'Name': lb_data['name'],
+            'DNS Name': lb_data['dns_name'],
+            'Type': elb_type,
+            'State Code': lb_data['state_code'],
+            'Region': lb_data['region'],
+            'Availability Zone': lb_data['availability_zones'].apply(lambda x: ", ".join(sorted([az['ZoneName'] for az in x]))),
+            'Listener From': lb_data['arn'].apply(lambda x: extract_listener_from(x, lbl_data)),
+            'Listener To': lb_data['arn'].apply(lambda x: extract_listener_to(x, lbl_data)),
+            'Scheme': lb_data['scheme'],
+            'Security Group': lb_data['security_groups'].apply(lambda x: ", ".join(x)),
+            'Cross-Zone Load Balancing': lb_data['load_balancer_attributes'].apply(extract_cross_zone),
+            'Access Logs': lb_data['load_balancer_attributes'].apply(extract_access_log),
+            'Tag': lb_data['tags'].apply(format_tags),
+        })
 
-    # 필요한 열과 변환된 데이터를 포함한 새로운 DataFrame 생성
-    transformed_data = pd.DataFrame({
-        'State Code': data['State Code'],  # State Code 값을 그대로 사용
-        'Region': data['Region'],
-        'Scheme': data['Scheme'],
-        'ELB Name': data['Name'],
-        'DNS Name': data['Dns Name'],
-        'Type': elb_type,
-        # 'Availability Zone': data['Availability Zones'].apply(parse_availability_zones),
-        'ELB Security Group': data['Security Groups'].apply(parse_security_groups),
-        'Cross-Zone Load Balancing': data['Load Balancer Attributes'].apply(
-            lambda x: 'Yes' if 'cross_zone' in str(x).lower() and 'true' in str(x).lower() else ''),
-        'Access Logs': data['Load Balancer Attributes'].apply(
-            lambda x: 'Yes' if 'access_logs.s3.enabled' in str(x).lower() and 'true' in str(x).lower() else ''),
-        'Tag': data['Tags'].apply(format_tags),
-        'Compared with Last Month': '-'
-    })
-
-    return transformed_data
+        return transformed_data
+    except Exception as e:
+        print(f"elb.py > transform_load_balancer_data(): {e}")
 
 
-def load_and_transform_elb_data(alb_csv_file, nlb_csv_file):
-    # 빈 리스트를 생성하여 변환된 데이터를 추가할 준비
+def load_and_transform_elb_data(alb_data, nlb_data, lbl_data):
     data_frames = []
 
-    # ALB 데이터 변환 (파일이 존재하는 경우에만)
-    if alb_csv_file is not None:
-        alb_data = transform_load_balancer_data(alb_csv_file, 'application')
+    if alb_data is not None:
+        alb_data = transform_load_balancer_data(alb_data, 'application', lbl_data)
         data_frames.append(alb_data)
 
-    # NLB 데이터 변환 (파일이 존재하는 경우에만)
-    if nlb_csv_file is not None:
-        nlb_data = transform_load_balancer_data(nlb_csv_file, 'network')
+    if nlb_data is not None:
+        nlb_data = transform_load_balancer_data(nlb_data, 'network', lbl_data)
         data_frames.append(nlb_data)
 
-    # 존재하는 데이터만 결합
     combined_data = pd.concat(data_frames, ignore_index=True) if data_frames else pd.DataFrame()
 
     return combined_data
-
