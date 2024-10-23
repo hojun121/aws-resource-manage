@@ -41,7 +41,7 @@ today = datetime.today().strftime('%y%m%d')
 os.makedirs('file/download', exist_ok=True)
 
 # Type Your DB Schema OR Set your Environment Path Here
-schema = "saleshub_prod"
+schema = "duclo"
 
 output_excel_path = os.path.join('file/download', f'{schema}_inventory_{today}.xlsx')
 
@@ -53,11 +53,12 @@ queries = {
     'docdbinstance': f'SELECT * FROM {schema}.aws_docdb_cluster_instance',
     'ebs': f'SELECT * FROM {schema}.aws_ebs_volume',
     'ec': f'SELECT * FROM {schema}.aws_elasticache_cluster',
+    'ecrep': f'SELECT * FROM {schema}.aws_elasticache_replication_group',
     'ec2': f'SELECT * FROM {schema}.aws_ec2_instance',
     'igw': f'SELECT * FROM {schema}.aws_vpc_internet_gateway',
     'iamgroup': f'SELECT * FROM {schema}.aws_iam_group',
     'iamrole': f'SELECT * FROM {schema}.aws_iam_role',
-    'iamuser': f'SELECT * FROM {schema}.aws_iam_access_key',
+    'iamuser': f'SELECT * FROM {schema}.aws_iam_user',
     'lbl': f'SELECT * FROM {schema}.aws_ec2_load_balancer_listener',
     'ngw': f'SELECT * FROM {schema}.aws_vpc_nat_gateway',
     'nacl': f'SELECT * FROM {schema}.aws_vpc_network_acl',
@@ -82,8 +83,13 @@ def process_and_save_sheets():
 
         alb_data = pd.read_sql(queries['alb'], engine)
         autoscaling_data = pd.read_sql(queries['autoscaling'], engine)
+        ec_data = pd.read_sql(queries['ec'], engine)
+        ecrep_data = pd.read_sql(queries['ecrep'], engine)
         ec2_data = pd.read_sql(queries['ec2'], engine)
         ebs_data = pd.read_sql(queries['ebs'], engine)
+        iamgroup_data = pd.read_sql(queries['iamgroup'], engine)
+        iamrole_data = pd.read_sql(queries['iamrole'], engine)
+        iamuser_data = pd.read_sql(queries['iamuser'], engine)
         igw_data = pd.read_sql(queries['igw'], engine)
         lbl_data = pd.read_sql(queries['lbl'], engine)
         ngw_data = pd.read_sql(queries['ngw'], engine)
@@ -140,16 +146,12 @@ def process_and_save_sheets():
                 transformed_data = load_and_transform_target_group_data(tg_data, autoscaling_data, ec2_data)
                 transformed_data.to_excel(writer, sheet_name='Target Group', index=False)
 
-            # Autoscaling 모듈 처리
-            autoscaling_data = pd.read_sql(queries['autoscaling'], engine)
             if not autoscaling_data.empty:
                 transformed_data = load_and_transform_autoscaling_data(autoscaling_data)
                 transformed_data.to_excel(writer, sheet_name='Auto Scaling', index=False)
-
-            # # Elasticache 모듈 처리
-            # ec_data = pd.read_sql(queries['ec'], engine)
+            #
             # if not ec_data.empty:
-            #     transformed_data = load_and_transform_elasticache_data(ec_data)
+            #     transformed_data = load_and_transform_elasticache_data(ec_data, ecrep_data)
             #     transformed_data.to_excel(writer, sheet_name='ElastiCache', index=False)
             #
             # # CloudFront 모듈 처리
@@ -157,27 +159,21 @@ def process_and_save_sheets():
             # if not cloudfront_data.empty:
             #     transformed_data = load_and_transform_cloudfront_data(cloudfront_data)
             #     transformed_data.to_excel(writer, sheet_name='CloudFront', index=False)
-            #
+
             # # S3 모듈 처리
             # s3_data = pd.read_sql(queries['s3'], engine)
             # if not s3_data.empty:
             #     transformed_data = load_and_transform_s3_data(s3_data)
             #     transformed_data.to_excel(writer, sheet_name='S3', index=False)
-            #
-            # # IAM Group 모듈 처리
-            # iamgroup_data = pd.read_sql(queries['iamgroup'], engine)
-            # if not iamgroup_data.empty:
-            #     transformed_data = load_and_transform_iam_group_data(iamgroup_data)
-            #     transformed_data.to_excel(writer, sheet_name='IAM Group', index=False)
-            #
-            # # IAM Role 모듈 처리
-            # iamrole_data = pd.read_sql(queries['iamrole'], engine)
+
+            if not iamgroup_data.empty:
+                transformed_data = load_and_transform_iam_group_data(iamgroup_data)
+                transformed_data.to_excel(writer, sheet_name='IAM Group', index=False)
+
             # if not iamrole_data.empty:
             #     transformed_data = load_and_transform_iam_role_data(iamrole_data)
             #     transformed_data.to_excel(writer, sheet_name='IAM Role', index=False)
             #
-            # # IAM User 모듈 처리
-            # iamuser_data = pd.read_sql(queries['iamuser'], engine)
             # if not iamuser_data.empty:
             #     transformed_data = load_and_transform_iam_user_data(iamuser_data)
             #     transformed_data.to_excel(writer, sheet_name='IAM User', index=False)
