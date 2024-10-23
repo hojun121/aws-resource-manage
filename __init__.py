@@ -4,6 +4,7 @@ import os
 import pandas as pd
 import openpyxl
 from openpyxl.styles import Alignment, PatternFill, Font, Border, Side
+from openpyxl.utils import get_column_letter
 from sqlalchemy import create_engine
 
 from modules.vpc import load_and_transform_vpc_data
@@ -41,7 +42,7 @@ today = datetime.today().strftime('%y%m%d')
 os.makedirs('file/download', exist_ok=True)
 
 # Type Your DB Schema OR Set your Environment Path Here
-schema = "duclo"
+schema = "saleshub_prod"
 
 output_excel_path = os.path.join('file/download', f'{schema}_inventory_{today}.xlsx')
 
@@ -80,75 +81,79 @@ queries = {
 
 def process_and_save_sheets():
     try:
-
-        alb_data = pd.read_sql(queries['alb'], engine)
-        autoscaling_data = pd.read_sql(queries['autoscaling'], engine)
-        ec_data = pd.read_sql(queries['ec'], engine)
-        ecrep_data = pd.read_sql(queries['ecrep'], engine)
-        ec2_data = pd.read_sql(queries['ec2'], engine)
-        ebs_data = pd.read_sql(queries['ebs'], engine)
+        # alb_data = pd.read_sql(queries['alb'], engine)
+        # autoscaling_data = pd.read_sql(queries['autoscaling'], engine)
+        docdbcluster_data = pd.read_sql(queries['docdbcluster'], engine)
+        docdbinstance_data = pd.read_sql(queries['docdbinstance'], engine)
+        # ec_data = pd.read_sql(queries['ec'], engine)
+        # ecrep_data = pd.read_sql(queries['ecrep'], engine)
+        # ec2_data = pd.read_sql(queries['ec2'], engine)
+        # ebs_data = pd.read_sql(queries['ebs'], engine)
         iamgroup_data = pd.read_sql(queries['iamgroup'], engine)
         iamrole_data = pd.read_sql(queries['iamrole'], engine)
         iamuser_data = pd.read_sql(queries['iamuser'], engine)
-        igw_data = pd.read_sql(queries['igw'], engine)
-        lbl_data = pd.read_sql(queries['lbl'], engine)
-        ngw_data = pd.read_sql(queries['ngw'], engine)
-        nlb_data = pd.read_sql(queries['nlb'], engine)
-        nacl_data = pd.read_sql(queries['nacl'], engine)
-        pc_data = pd.read_sql(queries['pc'], engine)
-        rt_data = pd.read_sql(queries['rt'], engine)
-        sg_data = pd.read_sql(queries['sg'], engine)
-        sgrule_data = pd.read_sql(queries['sgrule'], engine)
-        subnet_data = pd.read_sql(queries['subnet'], engine)
-        tg_data = pd.read_sql(queries['tg'], engine)
-        tgw_data = pd.read_sql(queries['tgw'], engine)
-        vep_data = pd.read_sql(queries['vep'], engine)
-        vpc_data = pd.read_sql(queries['vpc'], engine)
+        # igw_data = pd.read_sql(queries['igw'], engine)
+        # lbl_data = pd.read_sql(queries['lbl'], engine)
+        # ngw_data = pd.read_sql(queries['ngw'], engine)
+        # nlb_data = pd.read_sql(queries['nlb'], engine)
+        # nacl_data = pd.read_sql(queries['nacl'], engine)
+        # pc_data = pd.read_sql(queries['pc'], engine)
+        rdscluster_data = pd.read_sql(queries['rdscluster'], engine)
+        rdsinstance_data = pd.read_sql(queries['rdsinstance'], engine)
+        # rt_data = pd.read_sql(queries['rt'], engine)
+        s3_data = pd.read_sql(queries['s3'], engine)
+        # sg_data = pd.read_sql(queries['sg'], engine)
+        # sgrule_data = pd.read_sql(queries['sgrule'], engine)
+        # subnet_data = pd.read_sql(queries['subnet'], engine)
+        # tg_data = pd.read_sql(queries['tg'], engine)
+        # tgw_data = pd.read_sql(queries['tgw'], engine)
+        # vep_data = pd.read_sql(queries['vep'], engine)
+        # vpc_data = pd.read_sql(queries['vpc'], engine)
 
         with pd.ExcelWriter(output_excel_path, engine='xlsxwriter') as writer:
-            if not vpc_data.empty:
-                transformed_data = load_and_transform_vpc_data(vpc_data, igw_data, ngw_data)
-                transformed_data.to_excel(writer, sheet_name='VPC', index=False)
-
-            if not vep_data.empty:
-                transformed_data = load_and_transform_vep_data(vep_data)
-                transformed_data.to_excel(writer, sheet_name='VPC Endpoint', index=False)
-
-            if not pc_data.empty:
-                transformed_data = load_and_transform_pc_data(pc_data)
-                transformed_data.to_excel(writer, sheet_name='Peering Connection', index=False)
-
-            if not tgw_data.empty:
-                transformed_data = load_and_transform_tgw_data(tgw_data)
-                transformed_data.to_excel(writer, sheet_name='Transit Gateway', index=False)
-
-            if not subnet_data.empty:
-                transformed_data = load_and_transform_subnet_data(subnet_data, rt_data, nacl_data)
-                transformed_data.to_excel(writer, sheet_name='Subnet', index=False)
-
-            if not sg_data.empty:
-                transformed_data = load_and_transform_security_groups_data(sg_data, sgrule_data)
-                transformed_data.to_excel(writer, sheet_name='Security Groups', index=False)
-
-            if not nacl_data.empty:
-                transformed_data = load_and_transform_nacl_data(nacl_data)
-                transformed_data.to_excel(writer, sheet_name='Network ACLs', index=False)
-
-            if not ec2_data.empty:
-                transformed_data = load_and_transform_ec2_data(ec2_data, ebs_data)
-                transformed_data.to_excel(writer, sheet_name='EC2', index=False)
-
-            if not alb_data.empty or not nlb_data.empty:
-                transformed_data = load_and_transform_elb_data(alb_data, nlb_data, lbl_data)
-                transformed_data.to_excel(writer, sheet_name='ELB', index=False)
-
-            if not tg_data.empty:
-                transformed_data = load_and_transform_target_group_data(tg_data, autoscaling_data, ec2_data)
-                transformed_data.to_excel(writer, sheet_name='Target Group', index=False)
-
-            if not autoscaling_data.empty:
-                transformed_data = load_and_transform_autoscaling_data(autoscaling_data)
-                transformed_data.to_excel(writer, sheet_name='Auto Scaling', index=False)
+            # if not vpc_data.empty:
+            #     transformed_data = load_and_transform_vpc_data(vpc_data, igw_data, ngw_data)
+            #     transformed_data.to_excel(writer, sheet_name='VPC', index=False)
+            #
+            # if not vep_data.empty:
+            #     transformed_data = load_and_transform_vep_data(vep_data)
+            #     transformed_data.to_excel(writer, sheet_name='VPC Endpoint', index=False)
+            #
+            # if not pc_data.empty:
+            #     transformed_data = load_and_transform_pc_data(pc_data)
+            #     transformed_data.to_excel(writer, sheet_name='Peering Connection', index=False)
+            #
+            # if not tgw_data.empty:
+            #     transformed_data = load_and_transform_tgw_data(tgw_data)
+            #     transformed_data.to_excel(writer, sheet_name='Transit Gateway', index=False)
+            #
+            # if not subnet_data.empty:
+            #     transformed_data = load_and_transform_subnet_data(subnet_data, rt_data, nacl_data)
+            #     transformed_data.to_excel(writer, sheet_name='Subnet', index=False)
+            #
+            # if not sg_data.empty:
+            #     transformed_data = load_and_transform_security_groups_data(sg_data, sgrule_data)
+            #     transformed_data.to_excel(writer, sheet_name='Security Groups', index=False)
+            #
+            # if not nacl_data.empty:
+            #     transformed_data = load_and_transform_nacl_data(nacl_data)
+            #     transformed_data.to_excel(writer, sheet_name='Network ACLs', index=False)
+            #
+            # if not ec2_data.empty:
+            #     transformed_data = load_and_transform_ec2_data(ec2_data, ebs_data)
+            #     transformed_data.to_excel(writer, sheet_name='EC2', index=False)
+            #
+            # if not alb_data.empty or not nlb_data.empty:
+            #     transformed_data = load_and_transform_elb_data(alb_data, nlb_data, lbl_data)
+            #     transformed_data.to_excel(writer, sheet_name='ELB', index=False)
+            #
+            # if not tg_data.empty:
+            #     transformed_data = load_and_transform_target_group_data(tg_data, autoscaling_data, ec2_data)
+            #     transformed_data.to_excel(writer, sheet_name='Target Group', index=False)
+            #
+            # if not autoscaling_data.empty:
+            #     transformed_data = load_and_transform_autoscaling_data(autoscaling_data)
+            #     transformed_data.to_excel(writer, sheet_name='Auto Scaling', index=False)
             #
             # if not ec_data.empty:
             #     transformed_data = load_and_transform_elasticache_data(ec_data, ecrep_data)
@@ -160,34 +165,26 @@ def process_and_save_sheets():
             #     transformed_data = load_and_transform_cloudfront_data(cloudfront_data)
             #     transformed_data.to_excel(writer, sheet_name='CloudFront', index=False)
 
-            # # S3 모듈 처리
-            # s3_data = pd.read_sql(queries['s3'], engine)
-            # if not s3_data.empty:
-            #     transformed_data = load_and_transform_s3_data(s3_data)
-            #     transformed_data.to_excel(writer, sheet_name='S3', index=False)
+            if not s3_data.empty:
+                transformed_data = load_and_transform_s3_data(s3_data)
+                transformed_data.to_excel(writer, sheet_name='S3', index=False)
 
             if not iamgroup_data.empty:
                 transformed_data = load_and_transform_iam_group_data(iamgroup_data)
                 transformed_data.to_excel(writer, sheet_name='IAM Group', index=False)
 
-            # if not iamrole_data.empty:
-            #     transformed_data = load_and_transform_iam_role_data(iamrole_data)
-            #     transformed_data.to_excel(writer, sheet_name='IAM Role', index=False)
+            if not iamrole_data.empty:
+                transformed_data = load_and_transform_iam_role_data(iamrole_data)
+                transformed_data.to_excel(writer, sheet_name='IAM Role', index=False)
 
             if not iamuser_data.empty:
                 transformed_data = load_and_transform_iam_user_data(iamuser_data)
                 transformed_data.to_excel(writer, sheet_name='IAM User', index=False)
 
-            # # RDS 클러스터 및 인스턴스 처리
-            # rdscluster_data = pd.read_sql(queries['rdscluster'], engine)
-            # rdsinstance_data = pd.read_sql(queries['rdsinstance'], engine)
             # if not rdscluster_data.empty and not rdsinstance_data.empty:
             #     transformed_data = load_and_transform_rds_data(rdscluster_data, rdsinstance_data)
             #     transformed_data.to_excel(writer, sheet_name='RDS', index=False)
             #
-            # # DocumentDB 클러스터 및 인스턴스 처리
-            # docdbcluster_data = pd.read_sql(queries['docdbcluster'], engine)
-            # docdbinstance_data = pd.read_sql(queries['docdbinstance'], engine)
             # if not docdbcluster_data.empty and not docdbinstance_data.empty:
             #     transformed_data = load_and_transform_docdb_data(docdbcluster_data, docdbinstance_data)
             #     transformed_data.to_excel(writer, sheet_name='DocumentDB', index=False)
@@ -202,18 +199,25 @@ def process_and_save_sheets():
         wb.save(output_excel_path)
 
     except Exception as e:
-        print(f"Error occurred: {e}")
+        print(f"__init__.py > process_and_save_sheets(): {e}")
+
 
 def adjust_column_widths(sheet):
-    for column in sheet.columns:
+    for column_cells in sheet.columns:
         max_length = 0
-        column_name = column[0].value
-        for cell in column:
+        column = column_cells[0].column
+        column_letter = get_column_letter(column)
+        column_name = column_cells[0].value
+
+        for cell in column_cells:
             try:
-                if cell.value is not None:
-                    max_length = max(max_length, len(str(cell.value)))
-            except:
-                pass
+                if cell.value:
+                    cell_value = str(cell.value).split("\n")
+                    max_cell_length = max(len(line) for line in cell_value)
+                    max_length = max(max_length, max_cell_length)
+            except Exception as e:
+                print(f"Error calculating length for cell {cell.coordinate}: {e}")
+
         if column_name == 'Tag':
             adjusted_width = 50
         elif column_name == 'Listener From':
@@ -222,7 +226,8 @@ def adjust_column_widths(sheet):
             adjusted_width = 30
         else:
             adjusted_width = max_length + 2
-        sheet.column_dimensions[column[0].column_letter].width = adjusted_width
+
+        sheet.column_dimensions[column_letter].width = adjusted_width
 
 def style_header(sheet):
     header_fill = PatternFill(start_color="334d1d", end_color="334d1d", fill_type="solid")
