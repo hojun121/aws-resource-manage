@@ -38,8 +38,8 @@ def transform_vpc_data(vpc_data, igw_data, ngw_data):
     )
 
     # DNS Resolution과 DNS Hostname을 빈 문자열로 설정
-    vpc_data['DNS Resolution'] = ""
-    vpc_data['DNS Hostname'] = ""
+    vpc_data['DNS Resolution'] = "(Type Here)"
+    vpc_data['DNS Hostname'] = "(Type Here)"
 
     # VPC 데이터에서 중복 VPC ID 제거
     vpc_data = vpc_data.drop_duplicates(subset='vpc_id')

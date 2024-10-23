@@ -1,7 +1,7 @@
 import pandas as pd
 import json
 
-def transform_subnet_data(subnet_data, rt_data, network_acl_data):
+def transform_subnet_data(subnet_data, rt_data, nacl_data):
 
     def parse_rf_associations(associations):
         try:
@@ -65,7 +65,7 @@ def transform_subnet_data(subnet_data, rt_data, network_acl_data):
         rt_dict.update(parse_rf_associations(associations))
 
     nacl_dict = {}
-    for _, row in network_acl_data.iterrows():
+    for _, row in nacl_data.iterrows():
         associations = row['associations']
         nacl_dict.update(parse_network_acl_associations(associations))
 
@@ -86,5 +86,5 @@ def transform_subnet_data(subnet_data, rt_data, network_acl_data):
 
     return transformed_data
 
-def load_and_transform_subnet_data(subnet_data, rt_data, network_acl_data):
-    return transform_subnet_data(subnet_data, rt_data, network_acl_data)
+def load_and_transform_subnet_data(subnet_data, rt_data, nacl_data):
+    return transform_subnet_data(subnet_data, rt_data, nacl_data)
