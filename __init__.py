@@ -173,11 +173,11 @@ def process_and_save_sheets():
             # if not iamrole_data.empty:
             #     transformed_data = load_and_transform_iam_role_data(iamrole_data)
             #     transformed_data.to_excel(writer, sheet_name='IAM Role', index=False)
-            #
-            # if not iamuser_data.empty:
-            #     transformed_data = load_and_transform_iam_user_data(iamuser_data)
-            #     transformed_data.to_excel(writer, sheet_name='IAM User', index=False)
-            #
+
+            if not iamuser_data.empty:
+                transformed_data = load_and_transform_iam_user_data(iamuser_data)
+                transformed_data.to_excel(writer, sheet_name='IAM User', index=False)
+
             # # RDS 클러스터 및 인스턴스 처리
             # rdscluster_data = pd.read_sql(queries['rdscluster'], engine)
             # rdsinstance_data = pd.read_sql(queries['rdsinstance'], engine)
