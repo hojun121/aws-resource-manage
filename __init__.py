@@ -42,7 +42,7 @@ today = datetime.today().strftime('%y%m%d')
 os.makedirs('file/download', exist_ok=True)
 
 # Type Your DB Schema OR Set your Environment Path Here
-schema = "sightmind_prod"
+schema = "duclo"
 
 output_excel_path = os.path.join('file/download', f'{schema}_inventory_{today}.xlsx')
 
@@ -95,72 +95,72 @@ def process_and_save_sheets():
         iamgroup_data = pd.read_sql(queries['iamgroup'], engine)
         iamrole_data = pd.read_sql(queries['iamrole'], engine)
         iamuser_data = pd.read_sql(queries['iamuser'], engine)
-        # igw_data = pd.read_sql(queries['igw'], engine)
-        # lbl_data = pd.read_sql(queries['lbl'], engine)
-        # ngw_data = pd.read_sql(queries['ngw'], engine)
-        # nlb_data = pd.read_sql(queries['nlb'], engine)
-        # nacl_data = pd.read_sql(queries['nacl'], engine)
-        # pc_data = pd.read_sql(queries['pc'], engine)
+        igw_data = pd.read_sql(queries['igw'], engine)
+        lbl_data = pd.read_sql(queries['lbl'], engine)
+        ngw_data = pd.read_sql(queries['ngw'], engine)
+        nlb_data = pd.read_sql(queries['nlb'], engine)
+        nacl_data = pd.read_sql(queries['nacl'], engine)
+        pc_data = pd.read_sql(queries['pc'], engine)
         rdscluster_data = pd.read_sql(queries['rdscluster'], engine)
         rdsinstance_data = pd.read_sql(queries['rdsinstance'], engine)
-        # rt_data = pd.read_sql(queries['rt'], engine)
+        rt_data = pd.read_sql(queries['rt'], engine)
         s3_data = pd.read_sql(queries['s3'], engine)
-        # sg_data = pd.read_sql(queries['sg'], engine)
-        # sgrule_data = pd.read_sql(queries['sgrule'], engine)
-        # subnet_data = pd.read_sql(queries['subnet'], engine)
-        # tg_data = pd.read_sql(queries['tg'], engine)
-        # tgw_data = pd.read_sql(queries['tgw'], engine)
-        # vep_data = pd.read_sql(queries['vep'], engine)
-        # vpc_data = pd.read_sql(queries['vpc'], engine)
+        sg_data = pd.read_sql(queries['sg'], engine)
+        sgrule_data = pd.read_sql(queries['sgrule'], engine)
+        subnet_data = pd.read_sql(queries['subnet'], engine)
+        tg_data = pd.read_sql(queries['tg'], engine)
+        tgw_data = pd.read_sql(queries['tgw'], engine)
+        vep_data = pd.read_sql(queries['vep'], engine)
+        vpc_data = pd.read_sql(queries['vpc'], engine)
 
         with pd.ExcelWriter(output_excel_path, engine='xlsxwriter') as writer:
-            # if not vpc_data.empty:
-            #     transformed_data = load_and_transform_vpc_data(vpc_data, igw_data, ngw_data)
-            #     transformed_data.to_excel(writer, sheet_name='VPC', index=False)
-            #
-            # if not vep_data.empty:
-            #     transformed_data = load_and_transform_vep_data(vep_data)
-            #     transformed_data.to_excel(writer, sheet_name='VPC Endpoint', index=False)
-            #
-            # if not pc_data.empty:
-            #     transformed_data = load_and_transform_pc_data(pc_data)
-            #     transformed_data.to_excel(writer, sheet_name='Peering Connection', index=False)
-            #
-            # if not tgw_data.empty:
-            #     transformed_data = load_and_transform_tgw_data(tgw_data)
-            #     transformed_data.to_excel(writer, sheet_name='Transit Gateway', index=False)
-            #
-            # if not subnet_data.empty:
-            #     transformed_data = load_and_transform_subnet_data(subnet_data, rt_data, nacl_data)
-            #     transformed_data.to_excel(writer, sheet_name='Subnet', index=False)
-            #
-            # if not sg_data.empty:
-            #     transformed_data = load_and_transform_security_groups_data(sg_data, sgrule_data)
-            #     transformed_data.to_excel(writer, sheet_name='Security Groups', index=False)
-            #
-            # if not nacl_data.empty:
-            #     transformed_data = load_and_transform_nacl_data(nacl_data)
-            #     transformed_data.to_excel(writer, sheet_name='Network ACLs', index=False)
-            #
-            # if not ec2_data.empty:
-            #     transformed_data = load_and_transform_ec2_data(ec2_data, ebs_data)
-            #     transformed_data.to_excel(writer, sheet_name='EC2', index=False)
-            #
-            # if not alb_data.empty or not nlb_data.empty:
-            #     transformed_data = load_and_transform_elb_data(alb_data, nlb_data, lbl_data)
-            #     transformed_data.to_excel(writer, sheet_name='ELB', index=False)
-            #
-            # if not tg_data.empty:
-            #     transformed_data = load_and_transform_target_group_data(tg_data, autoscaling_data, ec2_data)
-            #     transformed_data.to_excel(writer, sheet_name='Target Group', index=False)
-            #
-            # if not autoscaling_data.empty:
-            #     transformed_data = load_and_transform_autoscaling_data(autoscaling_data)
-            #     transformed_data.to_excel(writer, sheet_name='Auto Scaling', index=False)
-            #
-            # if not ec_data.empty:
-            #     transformed_data = load_and_transform_elasticache_data(ec_data, ecrep_data)
-            #     transformed_data.to_excel(writer, sheet_name='ElastiCache', index=False)
+            if not vpc_data.empty:
+                transformed_data = load_and_transform_vpc_data(vpc_data, igw_data, ngw_data)
+                transformed_data.to_excel(writer, sheet_name='VPC', index=False)
+
+            if not vep_data.empty:
+                transformed_data = load_and_transform_vep_data(vep_data)
+                transformed_data.to_excel(writer, sheet_name='VPC Endpoint', index=False)
+
+            if not pc_data.empty:
+                transformed_data = load_and_transform_pc_data(pc_data)
+                transformed_data.to_excel(writer, sheet_name='Peering Connection', index=False)
+
+            if not tgw_data.empty:
+                transformed_data = load_and_transform_tgw_data(tgw_data)
+                transformed_data.to_excel(writer, sheet_name='Transit Gateway', index=False)
+
+            if not subnet_data.empty:
+                transformed_data = load_and_transform_subnet_data(subnet_data, rt_data, nacl_data)
+                transformed_data.to_excel(writer, sheet_name='Subnet', index=False)
+
+            if not sg_data.empty:
+                transformed_data = load_and_transform_security_groups_data(sg_data, sgrule_data)
+                transformed_data.to_excel(writer, sheet_name='Security Groups', index=False)
+
+            if not nacl_data.empty:
+                transformed_data = load_and_transform_nacl_data(nacl_data)
+                transformed_data.to_excel(writer, sheet_name='Network ACLs', index=False)
+
+            if not ec2_data.empty:
+                transformed_data = load_and_transform_ec2_data(ec2_data, ebs_data)
+                transformed_data.to_excel(writer, sheet_name='EC2', index=False)
+
+            if not alb_data.empty or not nlb_data.empty:
+                transformed_data = load_and_transform_elb_data(alb_data, nlb_data, lbl_data)
+                transformed_data.to_excel(writer, sheet_name='ELB', index=False)
+
+            if not tg_data.empty:
+                transformed_data = load_and_transform_target_group_data(tg_data, autoscaling_data, ec2_data)
+                transformed_data.to_excel(writer, sheet_name='Target Group', index=False)
+
+            if not autoscaling_data.empty:
+                transformed_data = load_and_transform_autoscaling_data(autoscaling_data)
+                transformed_data.to_excel(writer, sheet_name='Auto Scaling', index=False)
+
+            if not ec_data.empty:
+                transformed_data = load_and_transform_elasticache_data(ec_data, ecrep_data)
+                transformed_data.to_excel(writer, sheet_name='ElastiCache', index=False)
 
             if not cloudfront_data.empty:
                 transformed_data = load_and_transform_cloudfront_data(cloudfront_data)

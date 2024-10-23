@@ -44,14 +44,15 @@ def extract_listener_to(arn, lbl_data):
             for action in row['default_actions']:
                 if 'TargetGroupArn' in action:
                     target_group_arn = action['TargetGroupArn']
-                    target_group_name = target_group_arn.split('/')[-2]
-                    listen_to.append(target_group_name)
+                    if target_group_arn:
+                        target_group_name = target_group_arn.split('/')[-2]
+                        listen_to.append(target_group_name)
 
         listen_to_str = "\n".join(listen_to)
         return listen_to_str if listen_to_str else ''
 
     except Exception as e:
-        print(f"extract_listener_to() Error: {e}")
+        print(f"elb.py > extract_listener_to(arn, lbl_data): {e}")
         return ''
 
 

@@ -56,7 +56,7 @@ def extract_cloud_watch(db_cluster_identifier, cloudwatch_data):
 
     except Exception as e:
         print(f"rds.py > extract_cloud_watch(db_cluster_identifier, cloudwatch_data): {e}")
-        return 'Disabled'
+        return ''
 
 
 def transform_rds_data(rdscluster_data, rdsinstance_data, cloudwatch_data):
