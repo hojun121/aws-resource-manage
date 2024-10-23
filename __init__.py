@@ -42,7 +42,7 @@ today = datetime.today().strftime('%y%m%d')
 os.makedirs('file/download', exist_ok=True)
 
 # Type Your DB Schema OR Set your Environment Path Here
-schema = "saleshub_prod"
+schema = "dmpro_prod"
 
 output_excel_path = os.path.join('file/download', f'{schema}_inventory_{today}.xlsx')
 
@@ -50,6 +50,7 @@ queries = {
     'alb': f'SELECT * FROM {schema}.aws_ec2_application_load_balancer',
     'autoscaling': f'SELECT * FROM {schema}.aws_ec2_autoscaling_group',
     'cloudfront': f'SELECT * FROM {schema}.aws_cloudfront_distribution',
+    'cloudwatch': f'SELECT * FROM {schema}.aws_cloudwatch_metric',
     'docdbcluster': f'SELECT * FROM {schema}.aws_docdb_cluster_instance',
     'docdbinstance': f'SELECT * FROM {schema}.aws_docdb_cluster_instance',
     'ebs': f'SELECT * FROM {schema}.aws_ebs_volume',
@@ -81,15 +82,16 @@ queries = {
 
 def process_and_save_sheets():
     try:
-        # alb_data = pd.read_sql(queries['alb'], engine)
-        # autoscaling_data = pd.read_sql(queries['autoscaling'], engine)
+        alb_data = pd.read_sql(queries['alb'], engine)
+        autoscaling_data = pd.read_sql(queries['autoscaling'], engine)
         cloudfront_data = pd.read_sql(queries['cloudfront'], engine)
+        cloudwatch_data = pd.read_sql(queries['cloudwatch'], engine)
         docdbcluster_data = pd.read_sql(queries['docdbcluster'], engine)
         docdbinstance_data = pd.read_sql(queries['docdbinstance'], engine)
-        # ec_data = pd.read_sql(queries['ec'], engine)
-        # ecrep_data = pd.read_sql(queries['ecrep'], engine)
-        # ec2_data = pd.read_sql(queries['ec2'], engine)
-        # ebs_data = pd.read_sql(queries['ebs'], engine)
+        ec_data = pd.read_sql(queries['ec'], engine)
+        ecrep_data = pd.read_sql(queries['ecrep'], engine)
+        ec2_data = pd.read_sql(queries['ec2'], engine)
+        ebs_data = pd.read_sql(queries['ebs'], engine)
         iamgroup_data = pd.read_sql(queries['iamgroup'], engine)
         iamrole_data = pd.read_sql(queries['iamrole'], engine)
         iamuser_data = pd.read_sql(queries['iamuser'], engine)
@@ -159,7 +161,7 @@ def process_and_save_sheets():
             # if not ec_data.empty:
             #     transformed_data = load_and_transform_elasticache_data(ec_data, ecrep_data)
             #     transformed_data.to_excel(writer, sheet_name='ElastiCache', index=False)
-            #
+
             if not cloudfront_data.empty:
                 transformed_data = load_and_transform_cloudfront_data(cloudfront_data)
                 transformed_data.to_excel(writer, sheet_name='CloudFront', index=False)
@@ -180,12 +182,12 @@ def process_and_save_sheets():
                 transformed_data = load_and_transform_iam_user_data(iamuser_data)
                 transformed_data.to_excel(writer, sheet_name='IAM User', index=False)
 
-            # if not rdscluster_data.empty and not rdsinstance_data.empty:
-            #     transformed_data = load_and_transform_rds_data(rdscluster_data, rdsinstance_data)
-            #     transformed_data.to_excel(writer, sheet_name='RDS', index=False)
-            #
+            if not rdscluster_data.empty and not rdsinstance_data.empty:
+                transformed_data = load_and_transform_rds_data(rdscluster_data, rdsinstance_data, cloudwatch_data)
+                transformed_data.to_excel(writer, sheet_name='RDS', index=False)
+
             # if not docdbcluster_data.empty and not docdbinstance_data.empty:
-            #     transformed_data = load_and_transform_docdb_data(docdbcluster_data, docdbinstance_data)
+            #     transformed_data = load_and_transform_docdb_data(docdbcluster_data, docdbinstance_data, cloudwatch_data)
             #     transformed_data.to_excel(writer, sheet_name='DocumentDB', index=False)
 
         wb = openpyxl.load_workbook(output_excel_path)

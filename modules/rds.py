@@ -1,91 +1,89 @@
 import pandas as pd
-import json
 
 
-def extract_security_group_ids(vpc_security_groups):
-    """Extract and return security group IDs from VPC security group data."""
-    if pd.isna(vpc_security_groups) or not vpc_security_groups.strip():
+def extract_vpc_security_group(vpc_security_groups):
+    if pd.isna(vpc_security_groups) or not isinstance(vpc_security_groups, list):
         return ''
 
     try:
-        security_groups = json.loads(vpc_security_groups.replace("'", "\""))
-        return ', '.join(sg.get('VpcSecurityGroupId', '') for sg in security_groups)
-    except json.JSONDecodeError as e:
-        print(f"JSON decoding error in security group IDs: {e}")
-        return ''
+        return '\n'.join(sg.get('VpcSecurityGroupId', '') for sg in vpc_security_groups)
     except Exception as e:
-        print(f"Unexpected error in security group extraction: {e}")
+        print(f"rds.py > extract_security_group_ids(vpc_security_groups): {e}")
         return ''
 
 
 def extract_subnet_ids(subnets):
-    """Extract and return subnet IDs from subnet data."""
-    if pd.isna(subnets) or not subnets.strip():
-        return ''
-
     try:
-        subnet_data = json.loads(subnets.replace("'", "\""))
-        return ', '.join(subnet.get('SubnetIdentifier', '') for subnet in subnet_data)
-    except json.JSONDecodeError as e:
-        print(f"JSON decoding error in subnet IDs: {e}")
-        return ''
+        if subnets is None or not isinstance(subnets, list):
+            return ''
+        return '\n'.join(subnet.get('SubnetIdentifier', '') for subnet in subnets if 'SubnetIdentifier' in subnet)
     except Exception as e:
-        print(f"Unexpected error in subnet extraction: {e}")
+        print(f"rds.py > extract_subnet_ids(subnets): {e}")
         return ''
 
 
 def format_backup_retention_period(period):
-    """Format the backup retention period."""
-    if pd.notna(period) and period > 0:
-        days_label = 'day' if period == 1 else 'days'
-        return f'Enabled ({int(period)} {days_label})'
-    return 'Disabled'
+    try:
+        if pd.notna(period) and period > 0:
+            days_label = 'day' if period == 1 else 'days'
+            return f'Enabled ({int(period)} {days_label})'
+        return 'Disabled'
+    except Exception as e:
+        print(f"rds.py > format_backup_retention_period(period): {e}")
+        return ''
 
-
-def merge_rds_instance_and_cluster_data(instance_data, cluster_data):
-    """Perform a left join on instance and cluster data."""
-    return instance_data.merge(
-        cluster_data,
-        on='Db Cluster Identifier',
+def merge_rds_instance_and_cluster_data(rdscluster_data, rdsinstance_data):
+    return rdsinstance_data.merge(
+        rdscluster_data,
+        on='db_cluster_identifier',
         how='left',
         suffixes=('_instance', '_cluster')
     )
 
 
-def transform_rds_data(instance_data, cluster_data):
-    """Transform merged RDS instance and cluster data into the desired format."""
-    merged_data = merge_rds_instance_and_cluster_data(instance_data, cluster_data)
+def extract_cloud_watch(db_cluster_identifier, cloudwatch_data):
+    try:
+        if not (cloudwatch_data['namespace'] == 'AWS/RDS').any():
+            return 'Disabled'
+
+        for _, row in cloudwatch_data[cloudwatch_data['namespace'] == 'AWS/RDS'].iterrows():
+            dimensions = row.get('dimensions', [])
+            for dimension in dimensions:
+                if dimension.get('Name') == 'DBClusterIdentifier' and dimension.get('Value') == db_cluster_identifier:
+                    return 'Enabled'
+
+        return 'Disabled'
+
+    except Exception as e:
+        print(f"rds.py > extract_cloud_watch(db_cluster_identifier, cloudwatch_data): {e}")
+        return 'Disabled'
+
+
+def transform_rds_data(rdscluster_data, rdsinstance_data, cloudwatch_data):
+    merged_data = merge_rds_instance_and_cluster_data(rdscluster_data, rdsinstance_data)
 
     transformed_data = pd.DataFrame({
-        'Cluster Name': merged_data['Db Cluster Identifier'],
-        'DB Name': merged_data['Db Instance Identifier'],
-        'Port': merged_data['Endpoint Port'].fillna('-'),
-        'Engine Version': merged_data['Engine Version_instance'].fillna('-'),
-        'Size': merged_data['Class'].fillna('-'),
-        'Subnet Group ID': merged_data['Db Subnet Group Name'].fillna('-'),
-        'Subnet ID': merged_data['Subnets'].apply(extract_subnet_ids).fillna('-'),
-        'Parameter Group': merged_data['Db Cluster Parameter Group'].fillna('-'),
-        'Security Group': merged_data['Vpc Security Groups_instance'].apply(extract_security_group_ids).fillna('-'),
-        # 'Cluster Endpoint': merged_data['Endpoint'].fillna('-'),
-        # 'Reader Endpoint': merged_data['Reader Endpoint'].fillna('-'),
-        'Endpoint': merged_data['Endpoint Address'].fillna('-'),
-        'Backup': merged_data['Backup Retention Period_instance'].apply(format_backup_retention_period).fillna(
-            'Disabled'),
-        'Encryption At Rest': merged_data['Storage Encrypted_instance'].apply(lambda x: 'Yes' if x else 'No').fillna(
-            'No'),
-        'Description': merged_data['Db Subnet Group Description'].fillna('-'),
-        'Tier': merged_data['Promotion Tier'].fillna('-'),
-        'Compared with Last Month': '-'
+        'Cluster Name': merged_data['db_cluster_identifier'],
+        'DB Name': merged_data['db_instance_identifier'],
+        'Port': merged_data['endpoint_port'],
+        'Engine Version': merged_data['engine_version_instance'],
+        'Size': merged_data['class'],
+        'Subnet Group ID': merged_data['db_subnet_group_name'],
+        'Subnet ID': merged_data['subnets'].apply(extract_subnet_ids),
+        'Parameter Group': merged_data['db_cluster_parameter_group'],
+        'VPC Security Group': merged_data['vpc_security_groups_instance'].apply(extract_vpc_security_group),
+        'Endpoint': merged_data['endpoint_address'],
+        'Backup': merged_data['backup_retention_period_instance'].apply(format_backup_retention_period),
+        'Encryption At Rest': merged_data['storage_encrypted_instance'].apply(lambda x: 'Yes' if x else 'No'),
+        'Tier': merged_data['promotion_tier'],
+        'CloudWatch': merged_data['db_cluster_identifier'].apply(lambda x: extract_cloud_watch(x, cloudwatch_data)),
+        'Description': merged_data['db_subnet_group_description'],
     })
+
+    transformed_data = transformed_data.sort_values(by='Cluster Name', ascending=False)
 
     return transformed_data
 
 
-def load_and_transform_rds_data(rds_cluster_csv_file, rds_instance_csv_file):
-    """Load, transform, and return RDS instance and cluster data."""
-    # Load the CSV files
-    instance_data = pd.read_csv(rds_instance_csv_file, encoding='utf-8')
-    cluster_data = pd.read_csv(rds_cluster_csv_file, encoding='utf-8')
-
-    # Transform the data and return the result
-    return transform_rds_data(instance_data, cluster_data)
+def load_and_transform_rds_data(rdscluster_data, rdsinstance_data, cloudwatch_data):
+    return transform_rds_data(rdscluster_data, rdsinstance_data, cloudwatch_data)
