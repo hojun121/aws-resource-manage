@@ -56,11 +56,13 @@ def extract_listener_to(arn, lbl_data):
 
 
 def format_tags(tags):
-    """태그를 알파벳 순서로 정렬하여 형식화합니다. 빈 태그는 '-'로 표기합니다."""
     try:
-        sorted_tags = sorted(tags.items(), key=lambda item: item[0])
-        formatted_tags = ', '.join(f"{k}: {v}" for k, v in sorted_tags)
-        return formatted_tags if formatted_tags else '-'
+        if tags is not None:
+            sorted_tags = sorted(tags.items(), key=lambda item: item[0])
+            formatted_tags = ', '.join(f"{k}: {v}" for k, v in sorted_tags)
+            return formatted_tags if formatted_tags else '-'
+        else:
+            return ''
     except Exception as e:
         print(f"ec2.py → format_tags() : {e}")
         return '-'
@@ -75,14 +77,16 @@ def transform_load_balancer_data(lb_data, elb_type, lbl_data):
             'State Code': lb_data['state_code'],
             'Region': lb_data['region'],
             'Availability Zone': lb_data['availability_zones'].apply(lambda x: ", ".join(sorted([az['ZoneName'] for az in x]))),
-            'Listener From': lb_data['arn'].apply(lambda x: extract_listener_from(x, lbl_data)),
-            'Listener To': lb_data['arn'].apply(lambda x: extract_listener_to(x, lbl_data)),
+            'Listener From': lb_data['arn'].apply(lambda arn: extract_listener_from(arn, lbl_data)),
+            'Listener To': lb_data['arn'].apply(lambda arn: extract_listener_to(arn, lbl_data)),
             'Scheme': lb_data['scheme'],
             'Security Group': lb_data['security_groups'].apply(lambda x: ", ".join(x)),
             'Cross-Zone Load Balancing': lb_data['load_balancer_attributes'].apply(extract_cross_zone),
             'Access Logs': lb_data['load_balancer_attributes'].apply(extract_access_log),
             'Tag': lb_data['tags'].apply(format_tags),
         })
+
+        transformed_data = transformed_data.sort_values(by='Name', ascending=False)
 
         return transformed_data
     except Exception as e:

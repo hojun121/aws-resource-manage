@@ -2,7 +2,6 @@ import pandas as pd
 
 
 def extract_group_id(security_groups):
-    """보안 그룹의 ID를 추출합니다."""
     try:
         if not security_groups:
             return ''
@@ -13,7 +12,6 @@ def extract_group_id(security_groups):
 
 
 def extract_group_name(security_groups):
-    """보안 그룹의 이름을 추출합니다."""
     try:
         if not security_groups:
             return ''
@@ -24,7 +22,6 @@ def extract_group_name(security_groups):
 
 
 def extract_role_from_arn(arn):
-    """IAM Role에서 / 이후의 부분만 추출합니다."""
     try:
         if arn and isinstance(arn, str):
             return arn.split('/')[-1]
@@ -35,7 +32,6 @@ def extract_role_from_arn(arn):
 
 
 def extract_volume_id(block_device_mappings):
-    """block_device_mappings List에서 EBS VolumeId만 추출해서 입력합니다."""
     try:
         volume_ids = []
 
@@ -74,18 +70,19 @@ def extract_volume_size(block_device_mappings, ebs_data):
 
 
 def format_tags(tags):
-    """태그를 알파벳 순서로 정렬하여 형식화합니다. 빈 태그는 '-'로 표기합니다."""
     try:
-        sorted_tags = sorted(tags.items(), key=lambda item: item[0])
-        formatted_tags = ', '.join(f"{k}: {v}" for k, v in sorted_tags)
-        return formatted_tags if formatted_tags else '-'
+        if tags is not None:
+            sorted_tags = sorted(tags.items(), key=lambda item: item[0])
+            formatted_tags = ', '.join(f"{k}: {v}" for k, v in sorted_tags)
+            return formatted_tags if formatted_tags else '-'
+        else:
+            return ''
     except Exception as e:
         print(f"ec2.py → format_tags() : {e}")
         return '-'
 
 
 def transform_ec2_data(ec2_data, ebs_data):
-    """EC2 데이터를 변환합니다."""
     transformed_data = pd.DataFrame({
         'Name': ec2_data['title'],
         'ID': ec2_data['instance_id'],
@@ -107,7 +104,7 @@ def transform_ec2_data(ec2_data, ebs_data):
         'Volume ID': ec2_data['block_device_mappings'].apply(extract_volume_id),
         'Volume Size(GB)': ec2_data['block_device_mappings'].apply(extract_volume_size, args=(ebs_data,)),
         'IAM Role': ec2_data['iam_instance_profile_arn'].apply(extract_role_from_arn),
-        'Tags': ec2_data['tags'].apply(format_tags),
+        'Tag': ec2_data['tags'].apply(format_tags),
     })
 
     transformed_data = transformed_data.sort_values(by='Name', ascending=False)
@@ -116,5 +113,4 @@ def transform_ec2_data(ec2_data, ebs_data):
 
 
 def load_and_transform_ec2_data(ec2_data, ebs_data):
-    """EC2 데이터를 로드하고 변환합니다."""
     return transform_ec2_data(ec2_data, ebs_data)
