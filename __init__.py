@@ -49,7 +49,7 @@ output_excel_path = os.path.join('file/download', f'{schema}_inventory_{today}.x
 queries = {
     'alb': f'SELECT * FROM {schema}.aws_ec2_application_load_balancer',
     'autoscaling': f'SELECT * FROM {schema}.aws_ec2_autoscaling_group',
-    'cloudfront': f'SELECT * FROM {schema}.aws_cloudfront_cache_policy',
+    'cloudfront': f'SELECT * FROM {schema}.aws_cloudfront_distribution',
     'docdbcluster': f'SELECT * FROM {schema}.aws_docdb_cluster_instance',
     'docdbinstance': f'SELECT * FROM {schema}.aws_docdb_cluster_instance',
     'ebs': f'SELECT * FROM {schema}.aws_ebs_volume',
@@ -83,6 +83,7 @@ def process_and_save_sheets():
     try:
         # alb_data = pd.read_sql(queries['alb'], engine)
         # autoscaling_data = pd.read_sql(queries['autoscaling'], engine)
+        cloudfront_data = pd.read_sql(queries['cloudfront'], engine)
         docdbcluster_data = pd.read_sql(queries['docdbcluster'], engine)
         docdbinstance_data = pd.read_sql(queries['docdbinstance'], engine)
         # ec_data = pd.read_sql(queries['ec'], engine)
@@ -159,11 +160,9 @@ def process_and_save_sheets():
             #     transformed_data = load_and_transform_elasticache_data(ec_data, ecrep_data)
             #     transformed_data.to_excel(writer, sheet_name='ElastiCache', index=False)
             #
-            # # CloudFront 모듈 처리
-            # cloudfront_data = pd.read_sql(queries['cloudfront'], engine)
-            # if not cloudfront_data.empty:
-            #     transformed_data = load_and_transform_cloudfront_data(cloudfront_data)
-            #     transformed_data.to_excel(writer, sheet_name='CloudFront', index=False)
+            if not cloudfront_data.empty:
+                transformed_data = load_and_transform_cloudfront_data(cloudfront_data)
+                transformed_data.to_excel(writer, sheet_name='CloudFront', index=False)
 
             if not s3_data.empty:
                 transformed_data = load_and_transform_s3_data(s3_data)
