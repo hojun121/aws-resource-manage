@@ -42,7 +42,7 @@ today = datetime.today().strftime('%y%m%d')
 os.makedirs('file/download', exist_ok=True)
 
 # Type Your DB Schema OR Set your Environment Path Here
-schema = "dmpro_prod"
+schema = "sightmind_prod"
 
 output_excel_path = os.path.join('file/download', f'{schema}_inventory_{today}.xlsx')
 
@@ -51,7 +51,7 @@ queries = {
     'autoscaling': f'SELECT * FROM {schema}.aws_ec2_autoscaling_group',
     'cloudfront': f'SELECT * FROM {schema}.aws_cloudfront_distribution',
     'cloudwatch': f'SELECT * FROM {schema}.aws_cloudwatch_metric',
-    'docdbcluster': f'SELECT * FROM {schema}.aws_docdb_cluster_instance',
+    'docdbcluster': f'SELECT * FROM {schema}.aws_docdb_cluster',
     'docdbinstance': f'SELECT * FROM {schema}.aws_docdb_cluster_instance',
     'ebs': f'SELECT * FROM {schema}.aws_ebs_volume',
     'ec': f'SELECT * FROM {schema}.aws_elasticache_cluster',
@@ -186,9 +186,9 @@ def process_and_save_sheets():
                 transformed_data = load_and_transform_rds_data(rdscluster_data, rdsinstance_data, cloudwatch_data)
                 transformed_data.to_excel(writer, sheet_name='RDS', index=False)
 
-            # if not docdbcluster_data.empty and not docdbinstance_data.empty:
-            #     transformed_data = load_and_transform_docdb_data(docdbcluster_data, docdbinstance_data, cloudwatch_data)
-            #     transformed_data.to_excel(writer, sheet_name='DocumentDB', index=False)
+            if not docdbcluster_data.empty and not docdbinstance_data.empty:
+                transformed_data = load_and_transform_docdb_data(docdbcluster_data, docdbinstance_data, cloudwatch_data)
+                transformed_data.to_excel(writer, sheet_name='DocumentDB', index=False)
 
         wb = openpyxl.load_workbook(output_excel_path)
         for sheet in wb.sheetnames:

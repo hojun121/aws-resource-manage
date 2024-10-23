@@ -1,92 +1,86 @@
 import pandas as pd
-import json
 
 
-def extract_security_group_ids(vpc_security_groups):
-    """보안 그룹 ID를 추출합니다."""
+def extract_vpc_security_group(vpc_security_groups):
     try:
-        if pd.isna(vpc_security_groups) or not vpc_security_groups.strip():
+        if pd.isna(vpc_security_groups) or not isinstance(vpc_security_groups, list):
             return ''
-
-        # JSON 문자열을 파싱하여 보안 그룹 정보 추출
-        security_groups = json.loads(vpc_security_groups.replace("'", "\""))
-
-        # 'VpcSecurityGroupId' 값을 쉼표로 구분된 문자열로 반환
-        return ', '.join(sg.get('VpcSecurityGroupId', '') for sg in security_groups)
-    except json.JSONDecodeError as e:
-        print(f"JSON 디코딩 오류 발생: {e}")
-        return ''
+        return '\n'.join(sg.get('VpcSecurityGroupId', '') for sg in vpc_security_groups)
     except Exception as e:
-        print(f"기타 오류 발생: {e}")
+        print(f"docdb.py > extract_security_group_ids(vpc_security_groups): {e}")
         return ''
 
 
 def extract_subnet_ids(subnets):
-    """서브넷 ID를 추출합니다."""
     try:
-        if pd.isna(subnets) or not subnets.strip():
+        if subnets is None or not isinstance(subnets, list):
             return ''
-
-        subnet_data = json.loads(subnets.replace("'", "\""))
-        return ', '.join(subnet.get('SubnetIdentifier', '') for subnet in subnet_data)
-    except json.JSONDecodeError as e:
-        print(f"JSON 디코딩 오류 발생: {e}")
-        return ''
+        return '\n'.join(subnet.get('SubnetIdentifier', '') for subnet in subnets if 'SubnetIdentifier' in subnet)
     except Exception as e:
-        print(f"기타 오류 발생: {e}")
+        print(f"docdb.py > extract_subnet_ids(subnets): {e}")
         return ''
 
 
 def format_backup_retention_period(period):
-    """백업 보존 기간을 형식화합니다."""
     try:
         if pd.notna(period) and period > 0:
             days_label = 'day' if period == 1 else 'days'
             return f'Enabled ({int(period)} {days_label})'
         return 'Disabled'
     except Exception as e:
-        print(f"백업 보존 기간 처리 중 오류 발생: {e}")
+        print(f"docdb.py > format_backup_retention_period(period): {e}")
+        return ''
+
+
+def extract_cloud_watch(db_cluster_identifier, cloudwatch_data):
+    try:
+        if not (cloudwatch_data['namespace'] == 'AWS/DocDB').any():
+            return 'Disabled'
+
+        for _, row in cloudwatch_data[cloudwatch_data['namespace'] == 'AWS/DocDB'].iterrows():
+            dimensions = row.get('dimensions', [])
+            for dimension in dimensions:
+                if dimension.get('Name') == 'DBClusterIdentifier' and dimension.get('Value') == db_cluster_identifier:
+                    return 'Enabled'
+
         return 'Disabled'
 
+    except Exception as e:
+        print(f"docdb.py > extract_cloud_watch(db_cluster_identifier, cloudwatch_data): {e}")
+        return ''
 
-def transform_docdb_data(docdb_cluster_csv_file, docdb_instance_csv_file):
-    """DocDB 클러스터와 인스턴스 데이터를 변환합니다."""
-    # 클러스터와 인스턴스 데이터를 로드합니다.
-    cluster_data = pd.read_csv(docdb_cluster_csv_file, encoding='utf-8')
-    instance_data = pd.read_csv(docdb_instance_csv_file, encoding='utf-8')
 
-    # 인스턴스 데이터를 기준으로 병합합니다.
-    merged_data = instance_data.merge(
-        cluster_data,
-        left_on='Db Cluster Identifier',
-        right_on='Db Cluster Identifier',
+def transform_docdb_data(docdbcluster_data, docdbinstance_data, cloudwatch_data):
+    merged_data = docdbinstance_data.merge(
+        docdbcluster_data,
+        left_on='db_cluster_identifier',
+        right_on='db_cluster_identifier',
         how='left',
         suffixes=('_instance', '_cluster')
     )
 
-    # DataFrame 생성
     transformed_data = pd.DataFrame({
-        'Cluster / DB Name': merged_data['Db Instance Identifier'],
-        'Port': merged_data['Endpoint Port'],
-        'Engine Version': merged_data['Engine Version_instance'],
-        'Size': merged_data['Db Instance Class'],
-        'Subnet Group ID': merged_data['Db Subnet Group Name'],
-        'Subnet ID': merged_data['Subnets'].apply(extract_subnet_ids),
-        'Parameter Group': merged_data['Db Cluster Parameter Group'],
-        'Security Group': merged_data['Vpc Security Groups_instance'].apply(extract_security_group_ids),
-        'Cluster Endpoint': merged_data['Endpoint'],
-        'Reader Endpoint': merged_data['Reader Endpoint'],
-        'Backup': merged_data['Backup Retention Period_instance'].apply(format_backup_retention_period),
-        'Encryption At Rest': merged_data['Storage Encrypted_instance'].apply(lambda x: 'Yes' if x else 'No'),
-        'Description': merged_data['Db Subnet Group Description'],
-        # 'CloudWatch': merged_data['Enabled Cloudwatch Logs Exports_instance'].apply(
-        #     lambda x: ', '.join(json.loads(x.replace("'", "\""))) if pd.notna(x) else 'None'),
-        'Tier': merged_data['Promotion Tier'],
-        'Compared with Last Month': '-'
+        'Cluster Name': merged_data['db_cluster_identifier'],
+        'DB Name': merged_data['db_instance_identifier'],
+        'Port': merged_data['endpoint_port'],
+        'Engine Version': merged_data['engine_version_instance'],
+        'Size': merged_data['db_instance_class'],
+        'Subnet Group ID': merged_data['db_subnet_group_name'],
+        'Subnet ID': merged_data['subnets'].apply(extract_subnet_ids),
+        'Parameter Group': merged_data['db_cluster_parameter_group'],
+        'Security Group': merged_data['vpc_security_groups_instance'].apply(extract_vpc_security_group),
+        'Endpoint': merged_data['endpoint_address'],
+        'Backup': merged_data['backup_retention_period_instance'].apply(format_backup_retention_period),
+        'Encryption At Rest': merged_data['storage_encrypted_instance'].apply(lambda x: 'Yes' if x else 'No'),
+        'Description': merged_data['db_subnet_group_description'],
+        'CloudWatch': merged_data['db_cluster_identifier'].apply(lambda x: extract_cloud_watch(x, cloudwatch_data)),
+        'Tier': merged_data['promotion_tier'],
     })
+
+    transformed_data = transformed_data.sort_values(by='Cluster Name', ascending=False)
 
     return transformed_data
 
 
-def load_and_transform_docdb_data(docdb_docdb_cluster_csv_file, docdb_docdb_instance_csv_file):
-    return transform_docdb_data(docdb_docdb_cluster_csv_file, docdb_docdb_instance_csv_file)
+def load_and_transform_docdb_data(docdbcluster_data, docdbinstance_data, cloudwatch_data):
+    return transform_docdb_data(docdbcluster_data, docdbinstance_data, cloudwatch_data)
