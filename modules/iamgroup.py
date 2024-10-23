@@ -18,25 +18,33 @@ def extract_policies(attached_policy_arns):
 
 
 def extract_users(users):
-    user_names = []
+    try:
+        user_names = []
 
-    for user in users:
-        user_name = user['UserName']
-        if user_name not in user_names:
-            user_names.append(user_name)
+        for user in users:
+            user_name = user['UserName']
+            if user_name not in user_names:
+                user_names.append(user_name)
 
-    sorted_users = sorted(user_names)
-    return '\n'.join(sorted_users)
+        sorted_users = sorted(user_names)
+        return '\n'.join(sorted_users)
+    except Exception as e:
+        print(f"iamgroup.py > extract_users(users): {e}")
+        return '-'
 
 
 def transform_iam_group_data(iamgroup_data):
-    transformed_data = pd.DataFrame({
-        'Name': iamgroup_data['name'],
-        'Policy(arn:aws:iam::)': iamgroup_data['attached_policy_arns'].apply(extract_policies),
-        'Users': iamgroup_data['users'].apply(extract_users)
-    })
+    try:
+        transformed_data = pd.DataFrame({
+            'Name': iamgroup_data['name'],
+            'Policy(arn:aws:iam::)': iamgroup_data['attached_policy_arns'].apply(extract_policies),
+            'Users': iamgroup_data['users'].apply(extract_users)
+        })
 
-    transformed_data = transformed_data.sort_values(by='Name', ascending=False)
+        transformed_data = transformed_data.sort_values(by='Name', ascending=False)
+    except Exception as e:
+        print(f"iamgroup.py > transform_iam_group_data(iamgroup_data): {e}")
+        return pd.DataFrame()
 
     return transformed_data
 

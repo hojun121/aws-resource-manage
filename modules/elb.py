@@ -77,21 +77,24 @@ def transform_load_balancer_data(lb_data, elb_type, lbl_data):
             'Type': elb_type,
             'State Code': lb_data['state_code'],
             'Region': lb_data['region'],
-            'Availability Zone': lb_data['availability_zones'].apply(lambda x: ", ".join(sorted([az['ZoneName'] for az in x]))),
+            'Availability Zone': lb_data['availability_zones'].apply(
+                lambda x: ", ".join(sorted([az['ZoneName'] for az in x])) if isinstance(x, list) else ''),
             'Listener From': lb_data['arn'].apply(lambda arn: extract_listener_from(arn, lbl_data)),
             'Listener To': lb_data['arn'].apply(lambda arn: extract_listener_to(arn, lbl_data)),
             'Scheme': lb_data['scheme'],
-            'Security Group': lb_data['security_groups'].apply(lambda x: ", ".join(x)),
+            'Security Group': lb_data['security_groups'].apply(
+                lambda x: ", ".join(x) if isinstance(x, list) else ''),
             'Cross-Zone Load Balancing': lb_data['load_balancer_attributes'].apply(extract_cross_zone),
             'Access Logs': lb_data['load_balancer_attributes'].apply(extract_access_log),
             'Tag': lb_data['tags'].apply(format_tags),
         })
 
         transformed_data = transformed_data.sort_values(by='Name', ascending=False)
-
-        return transformed_data
     except Exception as e:
         print(f"elb.py > transform_load_balancer_data(): {e}")
+        return pd.DataFrame()
+
+    return transformed_data
 
 
 def load_and_transform_elb_data(alb_data, nlb_data, lbl_data):

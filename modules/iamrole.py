@@ -36,20 +36,24 @@ def extract_principals(assume_role_policy):
         return '\n'.join(sorted_principals)
 
     except Exception as e:
-        print(f"iamgroup.py > extract_principals(assume_role_policy): {e}")
+        print(f"iamrole.py > extract_principals(assume_role_policy): {e}")
         return ''
 
 
 def transform_iam_role_data(iamrole_data):
-    transformed_data = pd.DataFrame({
-        'Name': iamrole_data['name'],
-        'Trusted Entities': iamrole_data['assume_role_policy'].apply(extract_principals),
-        'Policy(arn:aws:iam::)': iamrole_data['attached_policy_arns'].apply(extract_policies),
-        'Create Date': iamrole_data['create_date'].dt.tz_localize(None),
-        'Role Last Used Date': iamrole_data['role_last_used_date'].dt.tz_localize(None),
-    })
+    try:
+        transformed_data = pd.DataFrame({
+            'Name': iamrole_data['name'],
+            'Trusted Entities': iamrole_data['assume_role_policy'].apply(extract_principals),
+            'Policy(arn:aws:iam::)': iamrole_data['attached_policy_arns'].apply(extract_policies),
+            'Create Date': iamrole_data['create_date'].dt.tz_localize(None),
+            'Role Last Used Date': iamrole_data['role_last_used_date'].dt.tz_localize(None),
+        })
 
-    transformed_data = transformed_data.sort_values(by='Name', ascending=False)
+        transformed_data = transformed_data.sort_values(by='Name', ascending=False)
+    except Exception as e:
+        print(f"iamrole.py > transform_iam_role_data(iamrole_data): {e}")
+        return pd.DataFrame()
 
     return transformed_data
 

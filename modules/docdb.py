@@ -51,33 +51,37 @@ def extract_cloud_watch(db_cluster_identifier, cloudwatch_data):
 
 
 def transform_docdb_data(docdbcluster_data, docdbinstance_data, cloudwatch_data):
-    merged_data = docdbinstance_data.merge(
-        docdbcluster_data,
-        left_on='db_cluster_identifier',
-        right_on='db_cluster_identifier',
-        how='left',
-        suffixes=('_instance', '_cluster')
-    )
+    try:
+        merged_data = docdbinstance_data.merge(
+            docdbcluster_data,
+            left_on='db_cluster_identifier',
+            right_on='db_cluster_identifier',
+            how='left',
+            suffixes=('_instance', '_cluster')
+        )
 
-    transformed_data = pd.DataFrame({
-        'Cluster Name': merged_data['db_cluster_identifier'],
-        'DB Name': merged_data['db_instance_identifier'],
-        'Port': merged_data['endpoint_port'],
-        'Engine Version': merged_data['engine_version_instance'],
-        'Size': merged_data['db_instance_class'],
-        'Subnet Group ID': merged_data['db_subnet_group_name'],
-        'Subnet ID': merged_data['subnets'].apply(extract_subnet_ids),
-        'Parameter Group': merged_data['db_cluster_parameter_group'],
-        'Security Group': merged_data['vpc_security_groups_instance'].apply(extract_vpc_security_group),
-        'Endpoint': merged_data['endpoint_address'],
-        'Backup': merged_data['backup_retention_period_instance'].apply(format_backup_retention_period),
-        'Encryption At Rest': merged_data['storage_encrypted_instance'].apply(lambda x: 'Yes' if x else 'No'),
-        'Description': merged_data['db_subnet_group_description'],
-        'CloudWatch': merged_data['db_cluster_identifier'].apply(lambda x: extract_cloud_watch(x, cloudwatch_data)),
-        'Tier': merged_data['promotion_tier'],
-    })
+        transformed_data = pd.DataFrame({
+            'Cluster Name': merged_data['db_cluster_identifier'],
+            'DB Name': merged_data['db_instance_identifier'],
+            'Port': merged_data['endpoint_port'],
+            'Engine Version': merged_data['engine_version_instance'],
+            'Size': merged_data['db_instance_class'],
+            'Subnet Group ID': merged_data['db_subnet_group_name'],
+            'Subnet ID': merged_data['subnets'].apply(extract_subnet_ids),
+            'Parameter Group': merged_data['db_cluster_parameter_group'],
+            'Security Group': merged_data['vpc_security_groups_instance'].apply(extract_vpc_security_group),
+            'Endpoint': merged_data['endpoint_address'],
+            'Backup': merged_data['backup_retention_period_instance'].apply(format_backup_retention_period),
+            'Encryption At Rest': merged_data['storage_encrypted_instance'].apply(lambda x: 'Yes' if x else 'No'),
+            'Description': merged_data['db_subnet_group_description'],
+            'CloudWatch': merged_data['db_cluster_identifier'].apply(lambda x: extract_cloud_watch(x, cloudwatch_data)),
+            'Tier': merged_data['promotion_tier'],
+        })
 
-    transformed_data = transformed_data.sort_values(by='Cluster Name', ascending=False)
+        transformed_data = transformed_data.sort_values(by='Cluster Name', ascending=False)
+    except Exception as e:
+        print(f"docdb.py > transform_docdb_data(docdbcluster_data, docdbinstance_data, cloudwatch_data): {e}")
+        return pd.DataFrame()
 
     return transformed_data
 

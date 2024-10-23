@@ -14,11 +14,16 @@ def extract_principals(policy):
             for statement in statements:
                 principal_dict = statement.get('Principal', {})
 
-                principals.extend([f"{k}: {v}" for k, v in principal_dict.items()])
+                if isinstance(principal_dict, dict):
+                    principals.extend([f"{k}: {v}" for k, v in principal_dict.items()])
+                elif isinstance(principal_dict, str):
+                    principals.append(principal_dict)
+                else:
+                    print(f"Warning: Unexpected type for Principal in statement: {type(principal_dict)}")
 
             sorted_principals = sorted(principals)
 
-            return '\n'.join(sorted_principals)
+            return '\n'.join(sorted_principals) if principals else 'No principals found.'
         else:
             return 'None'
 
@@ -70,25 +75,29 @@ def format_tags(tags):
 
 
 def transform_s3_data(s3_data):
-    transformed_data = pd.DataFrame({
-        'Name': s3_data['name'],
-        'Region': s3_data['region'],
-        'Block All Public Access': s3_data[
-                ['block_public_acls', 'block_public_policy', 'ignore_public_acls', 'restrict_public_buckets']
-            ].apply(lambda x: 'On' if all(val == True for val in x) else 'Off', axis=1),
-        'Versioning': s3_data['versioning_enabled'],
-        'Encryption': s3_data['server_side_encryption_configuration'].apply(
-            lambda x: 'Enabled' if pd.notna(x) and any(v is not None for v in x.get('Rules', [{}])[0].get('ApplyServerSideEncryptionByDefault', {}).values()) else 'Disabled'),
-        'Static Web Hosting': s3_data['website_configuration'].apply(
-            lambda x: 'Enabled' if pd.notna(x) and x.get('IndexDocument', {}).get('Suffix') else 'Disabled'),
-        'Bucket Policy': s3_data['policy'].apply(extract_principals),
-        'CORS': '(Type Here)',
-        'Lifecycle Expire Days': s3_data['lifecycle_rules'].apply(extract_expire_days),
-        'Static Log': s3_data['logging'].apply(extract_target_bucket),
-        'Tag': s3_data['tags'].apply(format_tags),
-    })
+    try:
+        transformed_data = pd.DataFrame({
+            'Name': s3_data['name'],
+            'Region': s3_data['region'],
+            'Block All Public Access': s3_data[
+                    ['block_public_acls', 'block_public_policy', 'ignore_public_acls', 'restrict_public_buckets']
+                ].apply(lambda x: 'On' if all(val == True for val in x) else 'Off', axis=1),
+            'Versioning': s3_data['versioning_enabled'],
+            'Encryption': s3_data['server_side_encryption_configuration'].apply(
+                lambda x: 'Enabled' if pd.notna(x) and any(v is not None for v in x.get('Rules', [{}])[0].get('ApplyServerSideEncryptionByDefault', {}).values()) else 'Disabled'),
+            'Static Web Hosting': s3_data['website_configuration'].apply(
+                lambda x: 'Enabled' if pd.notna(x) and x.get('IndexDocument', {}).get('Suffix') else 'Disabled'),
+            'Bucket Policy': s3_data['policy'].apply(extract_principals),
+            'CORS': '(Type Here)',
+            'Lifecycle Expire Days': s3_data['lifecycle_rules'].apply(extract_expire_days),
+            'Static Log': s3_data['logging'].apply(extract_target_bucket),
+            'Tag': s3_data['tags'].apply(format_tags),
+        })
 
-    transformed_data = transformed_data.sort_values(by='Name', ascending=False)
+        transformed_data = transformed_data.sort_values(by='Name', ascending=False)
+    except Exception as e:
+        print(f"s3.py → transform_s3_data(s3_data): {e}")
+        return pd.DataFrame()
 
     return transformed_data
 

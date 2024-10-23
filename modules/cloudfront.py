@@ -42,16 +42,20 @@ def extract_origin(origins):
 
 
 def transform_cloudfront_data(cloudfront_data):
-    transformed_data = pd.DataFrame({
-        'Domain Name': cloudfront_data['domain_name'],
-        'Alternate Domain Name': cloudfront_data['aliases'].apply(extract_items),
-        'ID': cloudfront_data['id'],
-        'Origin': cloudfront_data['origins'].apply(extract_origin),
-        'SSL Certificate': cloudfront_data['viewer_certificate'].apply(extract_certificate),
-        'Description': cloudfront_data['comment'],
-    })
+    try:
+        transformed_data = pd.DataFrame({
+            'Domain Name': cloudfront_data['domain_name'],
+            'Alternate Domain Name': cloudfront_data['aliases'].apply(extract_items),
+            'ID': cloudfront_data['id'],
+            'Origin': cloudfront_data['origins'].apply(extract_origin),
+            'SSL Certificate': cloudfront_data['viewer_certificate'].apply(extract_certificate),
+            'Description': cloudfront_data['comment'],
+        })
 
-    transformed_data = transformed_data.sort_values(by='Domain Name', ascending=False)
+        transformed_data = transformed_data.sort_values(by='Domain Name', ascending=False)
+    except Exception as e:
+        print(f"cloudfront.py > transform_cloudfront_data: {e}")
+        return pd.DataFrame()
 
     return transformed_data
 

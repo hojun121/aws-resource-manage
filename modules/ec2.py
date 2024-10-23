@@ -83,31 +83,35 @@ def format_tags(tags):
 
 
 def transform_ec2_data(ec2_data, ebs_data):
-    transformed_data = pd.DataFrame({
-        'Name': ec2_data['title'],
-        'ID': ec2_data['instance_id'],
-        'Instance State': ec2_data['instance_state'],
-        'Region': ec2_data['region'],
-        'Availability Zone': ec2_data['placement_availability_zone'],
-        'SEV': '(Type Here)',
-        'Image ID': ec2_data['image_id'],
-        'Instance Type': ec2_data['instance_type'],
-        'Vpc ID': ec2_data['vpc_id'],
-        'Subnet ID': ec2_data['subnet_id'],
-        'Private IP': ec2_data['private_ip_address'],
-        'Root Device Type': ec2_data['root_device_type'],
-        'Security Groups': ec2_data['security_groups'].apply(extract_group_id),
-        'Security Group Name': ec2_data['security_groups'].apply(extract_group_name),
-        'Key Name': ec2_data['key_name'],
-        'Public IP': ec2_data['public_ip_address'].fillna('None'),
-        'Elastic IP': '(Type Here)',
-        'Volume ID': ec2_data['block_device_mappings'].apply(extract_volume_id),
-        'Volume Size(GB)': ec2_data['block_device_mappings'].apply(extract_volume_size, args=(ebs_data,)),
-        'IAM Role': ec2_data['iam_instance_profile_arn'].apply(extract_role_from_arn),
-        'Tag': ec2_data['tags'].apply(format_tags),
-    })
+    try:
+        transformed_data = pd.DataFrame({
+            'Name': ec2_data['title'],
+            'ID': ec2_data['instance_id'],
+            'Instance State': ec2_data['instance_state'],
+            'Region': ec2_data['region'],
+            'Availability Zone': ec2_data['placement_availability_zone'],
+            'SEV': '(Type Here)',
+            'Image ID': ec2_data['image_id'],
+            'Instance Type': ec2_data['instance_type'],
+            'Vpc ID': ec2_data['vpc_id'],
+            'Subnet ID': ec2_data['subnet_id'],
+            'Private IP': ec2_data['private_ip_address'],
+            'Root Device Type': ec2_data['root_device_type'],
+            'Security Groups': ec2_data['security_groups'].apply(extract_group_id),
+            'Security Group Name': ec2_data['security_groups'].apply(extract_group_name),
+            'Key Name': ec2_data['key_name'],
+            'Public IP': ec2_data['public_ip_address'].fillna('None'),
+            'Elastic IP': '(Type Here)',
+            'Volume ID': ec2_data['block_device_mappings'].apply(extract_volume_id),
+            'Volume Size(GB)': ec2_data['block_device_mappings'].apply(extract_volume_size, args=(ebs_data,)),
+            'IAM Role': ec2_data['iam_instance_profile_arn'].apply(extract_role_from_arn),
+            'Tag': ec2_data['tags'].apply(format_tags),
+        })
 
-    transformed_data = transformed_data.sort_values(by='Name', ascending=False)
+        transformed_data = transformed_data.sort_values(by='Name', ascending=False)
+    except Exception as e:
+        print(f"ec2.py → transform_ec2_data(ec2_data, ebs_data): {e}")
+        return pd.DataFrame()
 
     return transformed_data
 
