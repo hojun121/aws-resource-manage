@@ -3,6 +3,9 @@ import json
 
 def extract_policies(attached_policy_arns):
     try:
+        if attached_policy_arns is None:
+            return '-'
+
         policies = [policy.replace('arn:aws:iam::', '') for policy in attached_policy_arns]
 
         sorted_policies = sorted(policies)
@@ -10,7 +13,7 @@ def extract_policies(attached_policy_arns):
         return '\n'.join(sorted_policies)
 
     except Exception as e:
-        print(f"iamgroup.py > extract_policies(policy_column): {e}")
+        print(f"iamgroup.py > extract_policies(attached_policy_arns): {e}")
         return '-'
 
 
@@ -29,7 +32,7 @@ def extract_users(users):
 def transform_iam_group_data(iamgroup_data):
     transformed_data = pd.DataFrame({
         'Name': iamgroup_data['name'],
-        'IAM Policy': iamgroup_data['attached_policy_arns'].apply(extract_policies),
+        'Policy(arn:aws:iam::)': iamgroup_data['attached_policy_arns'].apply(extract_policies),
         'Users': iamgroup_data['users'].apply(extract_users)
     })
 

@@ -2,22 +2,30 @@ import pandas as pd
 
 
 def extract_groups(groups):
-    group_names = []
+    try:
+        group_names = []
 
-    for group in groups:
-        group_name = group['GroupName']
-        if group_name not in group_names:
-            group_names.append(group_name)
+        for group in groups:
+            group_name = group['GroupName']
+            if group_name not in group_names:
+                group_names.append(group_name)
 
-    sorted_groups = sorted(group_names)
-    return '\n'.join(sorted_groups)
+        sorted_groups = sorted(group_names)
+        return '\n'.join(sorted_groups)
+    except Exception as e:
+        print(f"iamuser.py > extract_groups(groups): {e}")
+        return '-'
 
 
 def extract_mfa(mfa_devices):
-    for device in mfa_devices:
-        if all(key in device for key in ['UserName', 'EnableDate', 'SerialNumber']):
-            return 'Enabled'
-    return 'Disabled'
+    try:
+        for device in mfa_devices:
+            if all(key in device for key in ['UserName', 'EnableDate', 'SerialNumber']):
+                return 'Enabled'
+        return 'Disabled'
+    except Exception as e:
+        print(f"iamuser.py > extract_mfa(mfa_devices): {e}")
+        return '-'
 
 
 def transform_iam_user_data(iamuser_data):
