@@ -2,6 +2,7 @@ import sys
 from datetime import datetime
 import os
 import re
+import subprocess
 import pandas as pd
 import openpyxl
 from openpyxl.styles import Alignment, PatternFill, Font, Border, Side
@@ -29,32 +30,12 @@ from modules.s3 import load_and_transform_s3_data
 from modules.tg import load_and_transform_target_group_data
 from modules.rds import load_and_transform_rds_data
 
-# Prompt the user for PostgreSQL connection details
-host = '127.0.0.1'
-port = '9193'
-username = 'steampipe'
-password = os.getenv('st_password')
-db_name = 'steampipe'
-
-def extract_connections(file_path):
-    connections = []
-    try:
-        # Open the file
-        with open(file_path, "r") as file:
-            content = file.read()
-            # Use regular expressions to extract connection names that are not of type "aggregator"
-            matches = re.findall(r'connection\s+"([^"]+)"\s*{(?:(?!type\s*=\s*"aggregator").)*}', content, re.DOTALL)
-            if matches:
-                connections.extend(matches)
-    except FileNotFoundError:
-        print(f"File not found: {file_path}")
-    return connections
-
-schemas = extract_connections(os.path.expanduser("~/.steampipe/config/aws.spc"))
-print(schemas)
-
 # Construct the database URI
-DB_URI = f'postgresql://{username}:{password}@{host}:{port}/{db_name}'
+password = subprocess.check_output(
+            "steampipe service start --show-password | grep 'Password:' | awk '{print $2}'",
+            shell=True, text=True).strip()
+DB_URI = f'postgresql://steampipe:{password}@127.0.0.1:9193/steampipe'
+print(DB_URI)
 
 try:
     engine = create_engine(DB_URI)
@@ -188,6 +169,18 @@ def process_and_save_sheets(queries, output_excel_path):
 
 # Generate Excel files for each schema
 if __name__ == '__main__':
+    schemas = []
+    try:
+        # Open the file
+        with open(os.path.expanduser("~/.steampipe/config/aws.spc"), "r") as file:
+            content = file.read()
+            # Use regular expressions to extract connection names that are not of type "aggregator"
+            matches = re.findall(r'connection\s+"([^"]+)"\s*{(?:(?!type\s*=\s*"aggregator").)*}', content, re.DOTALL)
+            if matches:
+                schemas.extend(matches)
+    except FileNotFoundError:
+        print(f"aws.spc File not found")
+
     for schema in schemas:
         output_excel_path = os.path.join('inventory', f'{schema}_inventory_{today}.xlsx')
         os.makedirs('inventory', exist_ok=True)
