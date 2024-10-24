@@ -6,10 +6,10 @@ RUN apt-get update -y \
  && export PATH=$PATH:~/.local/bin \
  && pyinstaller --onefile --add-data "modules:modules" __init__.py
 
-FROM ubuntu:22.04
+FROM debian:12-slim
 USER root
 RUN apt-get update -y \
- && apt-get install -y sudo less curl unzip wget \
+ && apt-get install -y sudo curl unzip wget \
  && curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
  && unzip awscliv2.zip \
  && ./aws/install \
