@@ -1,20 +1,37 @@
 import pandas as pd
 
+
 def extract_subnets(subnet_ids):
-    return ', '.join(subnet_ids) if isinstance(subnet_ids, list) else 'None'
+    try:
+        return ', '.join(subnet_ids) if isinstance(subnet_ids, list) else 'None'
+    except Exception as e:
+        print(f"vep.py > extract_subnets(subnet_ids): {e}")
+        return ''
 
 def extract_security_groups(security_groups):
-    return ', '.join([sg['GroupName'] for sg in security_groups]) if isinstance(security_groups, list) else 'None'
+    try:
+        return ', '.join([sg['GroupName'] for sg in security_groups]) if isinstance(security_groups, list) else 'None'
+    except Exception as e:
+        print(f"vep.py > extract_security_groups(security_groups): {e}")
+        return ''
 
 def extract_route_tables(value):
-    return ', '.join(value) if isinstance(value, list) and value else 'None'
+    try:
+        return ', '.join(value) if isinstance(value, list) and value else 'None'
+    except Exception as e:
+        print(f"Error in extract_route_tables: {e}")
+        return ''
 
 def extract_terraform(tags):
-    if isinstance(tags, list):
-        for tag in tags:
-            if tag.get('Key') == 'Terraform' and tag.get('Value') == 'True':
-                return 'Yes'
-    return 'No'
+    try:
+        if isinstance(tags, list):
+            for tag in tags:
+                if tag.get('Key') == 'Terraform' and tag.get('Value') == 'True':
+                    return 'Yes'
+        return 'No'
+    except Exception as e:
+        print(f"vep.py > extract_terraform(tags): {e}")
+        return ''
 
 def transform_vep_data(vep_data):
     try:
