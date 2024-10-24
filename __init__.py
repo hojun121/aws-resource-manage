@@ -1,6 +1,7 @@
 import sys
 from datetime import datetime
 import os
+import re
 import pandas as pd
 import openpyxl
 from openpyxl.styles import Alignment, PatternFill, Font, Border, Side
@@ -32,8 +33,25 @@ from modules.rds import load_and_transform_rds_data
 host = '127.0.0.1'
 port = '9193'
 username = 'steampipe'
-password = 'ebf2_4830_b346'
+password = os.getenv('st_password')
 db_name = 'steampipe'
+
+def extract_connections(file_path):
+    connections = []
+    try:
+        # Open the file
+        with open(file_path, "r") as file:
+            content = file.read()
+            # Use regular expressions to extract connection names that are not of type "aggregator"
+            matches = re.findall(r'connection\s+"([^"]+)"\s*{(?:(?!type\s*=\s*"aggregator").)*}', content, re.DOTALL)
+            if matches:
+                connections.extend(matches)
+    except FileNotFoundError:
+        print(f"File not found: {file_path}")
+    return connections
+
+schemas = extract_connections(os.path.expanduser("~/.steampipe/config/aws.spc"))
+print(schemas)
 
 # Construct the database URI
 DB_URI = f'postgresql://{username}:{password}@{host}:{port}/{db_name}'
@@ -46,9 +64,6 @@ try:
 except Exception as e:
     print("Please check your SSO or IAM permissions.")
     sys.exit(1)
-
-# Retrieve the list of schemas from the environment variable
-schemas = ['duclo']
 
 # Set the download path
 today = datetime.today().strftime('%y%m%d')
@@ -174,8 +189,8 @@ def process_and_save_sheets(queries, output_excel_path):
 # Generate Excel files for each schema
 if __name__ == '__main__':
     for schema in schemas:
-        output_excel_path = os.path.join('download', f'{schema}_inventory_{today}.xlsx')
-        os.makedirs('download', exist_ok=True)
+        output_excel_path = os.path.join('/etc/inventory', f'{schema}_inventory_{today}.xlsx')
+        os.makedirs('/etc/inventory', exist_ok=True)
 
         queries = {
             'alb': f'SELECT * FROM {schema}.aws_ec2_application_load_balancer',
