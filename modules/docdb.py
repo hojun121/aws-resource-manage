@@ -32,7 +32,7 @@ def format_backup_retention_period(period):
         return ''
 
 
-def extract_cloud_watch(db_cluster_identifier, cloudwatch_data):
+def extract_cloud_watch(db_instance_identifier, cloudwatch_data):
     try:
         if not (cloudwatch_data['namespace'] == 'AWS/DocDB').any():
             return 'Disabled'
@@ -40,7 +40,7 @@ def extract_cloud_watch(db_cluster_identifier, cloudwatch_data):
         for _, row in cloudwatch_data[cloudwatch_data['namespace'] == 'AWS/DocDB'].iterrows():
             dimensions = row.get('dimensions', [])
             for dimension in dimensions:
-                if dimension.get('Name') == 'DBClusterIdentifier' and dimension.get('Value') == db_cluster_identifier:
+                if dimension.get('Name') == 'DBInstanceIdentifier' and dimension.get('Value') == db_instance_identifier:
                     return 'Enabled'
 
         return 'Disabled'
@@ -74,7 +74,7 @@ def transform_docdb_data(docdbcluster_data, docdbinstance_data, cloudwatch_data)
             'Backup': merged_data['backup_retention_period_instance'].apply(format_backup_retention_period),
             'Encryption At Rest': merged_data['storage_encrypted_instance'].apply(lambda x: 'Yes' if x else 'No'),
             'Description': merged_data['db_subnet_group_description'],
-            'CloudWatch': merged_data['db_cluster_identifier'].apply(lambda x: extract_cloud_watch(x, cloudwatch_data)),
+            'CloudWatch': merged_data['db_instance_identifier'].apply(lambda x: extract_cloud_watch(x, cloudwatch_data)),
             'Tier': merged_data['promotion_tier'],
         })
 
