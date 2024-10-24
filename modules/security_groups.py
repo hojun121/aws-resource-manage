@@ -25,25 +25,25 @@ def get_name_from_tags(tags):
         return "-"
 
 
-def comments_from_rule(rule, protocol, source_dest, name, sg_name):
+def comments_from_rule(protocol, source_dest, name, sg_name):
     comments = ""
 
-    # All IPs are open check
+    # Check all IPs are open
     if source_dest == "0.0.0.0/0":
         comments += "All IPs are open"
 
-    # All ports are open check
+    # Check all ports are open
     if protocol == "All":
         if comments:
             comments += " and all ports are open\n"
         else:
             comments = "All ports are open\n"
 
-    # Name이 하이픈이면 추가로 'No security group name' 추가
+    # When Name is '-', Add 'No security group name'
     if name == "-":
         comments += ", No security group name" if comments else "No security group name"
 
-    # Default Security Group 여부 확인
+    # Confirm Default Security Group
     if sg_name.lower() == 'default':
         if comments:
             comments += " and Default Security Group has rules\n"
@@ -78,7 +78,7 @@ def process_rule(rule, direction, sg_name, sg_id, region, rule_mapping, tags):
             descriptions = [ip_range.get("Description", "-") for ip_range in r.get("IpRanges", [])]
             description = ', '.join(desc if desc else "-" for desc in descriptions)
 
-            comments = comments_from_rule(r, protocol, source_dest, name, sg_name)
+            comments = comments_from_rule(protocol, source_dest, name, sg_name)
 
             rules_list.append({
                 'Name': name,

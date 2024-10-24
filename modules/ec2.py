@@ -101,7 +101,6 @@ def transform_ec2_data(ec2_data, ebs_data):
             'Security Group Name': ec2_data['security_groups'].apply(extract_group_name),
             'Key Name': ec2_data['key_name'],
             'Public IP': ec2_data['public_ip_address'].fillna('None'),
-            'Elastic IP': '(Type Here)',
             'Volume ID': ec2_data['block_device_mappings'].apply(extract_volume_id),
             'Volume Size(GB)': ec2_data['block_device_mappings'].apply(extract_volume_size, args=(ebs_data,)),
             'IAM Role': ec2_data['iam_instance_profile_arn'].apply(extract_role_from_arn),

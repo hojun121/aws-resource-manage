@@ -72,7 +72,7 @@ def transform_elasticache_data(ec_data, ecrep_data):
             'Shard': merged_data['num_cache_nodes'],
             'Node': merged_data['node_groups'].apply(extract_node),
             'Endpoint': merged_data['cache_nodes'].apply(extract_endpoint),
-            'Backup': merged_data.apply(lambda x: 'Enabled' if x['snapshotting_cluster_id'] is not None and x['snapshot_retention_limit'] >= 1 else 'Disabled', axis=1),
+            # 'Backup': merged_data.apply(lambda x: 'Enabled' if x['snapshotting_cluster_id'] is not None and x['snapshot_retention_limit'] >= 1 else 'Disabled', axis=1),
             'Encryption at rest': merged_data['at_rest_encryption_enabled_cluster'].apply(lambda x: 'Enabled' if x is True else 'Disabled'),
             'Description': merged_data['description']
         })
