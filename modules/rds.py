@@ -81,7 +81,7 @@ def transform_rds_data(rdscluster_data, rdsinstance_data, cloudwatch_data):
             'VPC Security Group': merged_data['vpc_security_groups_instance'].apply(extract_vpc_security_group),
             'Endpoint': merged_data['endpoint_address'],
             'Backup': merged_data['backup_retention_period_instance'].apply(format_backup_retention_period),
-            'Encryption At Rest': merged_data['storage_encrypted_instance'].apply(lambda x: 'Yes' if x else 'No'),
+            'Encryption At Rest': merged_data['storage_encrypted_instance'].apply(lambda x: 'Enabled' if x else 'Disabled'),
             'Tier': merged_data['promotion_tier'],
             'CloudWatch': merged_data['db_instance_identifier'].apply(lambda x: extract_cloud_watch(x, cloudwatch_data)),
             'Description': merged_data['db_subnet_group_description'],
