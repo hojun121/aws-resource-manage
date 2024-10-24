@@ -1,5 +1,6 @@
 import sys
 from datetime import datetime
+import time
 import os
 import re
 import subprocess
@@ -38,6 +39,7 @@ DB_URI = f'postgresql://steampipe:{password}@127.0.0.1:9193/steampipe'
 print(DB_URI)
 
 try:
+    time.sleep(5)
     engine = create_engine(DB_URI)
     connection = engine.connect()
     print("Connection successful.")
