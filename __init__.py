@@ -32,7 +32,7 @@ from modules.rds import load_and_transform_rds_data
 host = '127.0.0.1'
 port = '9193'
 username = 'steampipe'
-password = os.getenv('st_password')
+password = 'ebf2_4830_b346'
 db_name = 'steampipe'
 
 # Construct the database URI
@@ -48,10 +48,128 @@ except Exception as e:
     sys.exit(1)
 
 # Retrieve the list of schemas from the environment variable
-schemas = []
+schemas = ['duclo']
 
 # Set the download path
 today = datetime.today().strftime('%y%m%d')
+
+
+def adjust_column_widths(sheet):
+    for column_cells in sheet.columns:
+        max_length = 0
+        column = column_cells[0].column
+        column_letter = get_column_letter(column)
+        column_name = column_cells[0].value
+
+        for cell in column_cells:
+            try:
+                if cell.value:
+                    cell_value = str(cell.value).split("\n")
+                    max_cell_length = max(len(line) for line in cell_value)
+                    max_length = max(max_length, max_cell_length)
+            except Exception as e:
+                print(f"Error calculating length for cell {cell.coordinate}: {e}")
+
+        if column_name == 'Tag':
+            adjusted_width = 50
+        elif column_name == 'Listener From':
+            adjusted_width = 15
+        elif column_name == 'Listener To':
+            adjusted_width = 30
+        else:
+            adjusted_width = max_length + 2
+
+        sheet.column_dimensions[column_letter].width = adjusted_width
+
+
+def style_header(sheet):
+    header_fill = PatternFill(start_color="334d1d", end_color="334d1d", fill_type="solid")
+    header_font = Font(color="FFFFFF")
+
+    for cell in sheet[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(vertical='center')
+
+
+def apply_borders(sheet):
+    thin_border = Border(left=Side(style='thin'),
+                         right=Side(style='thin'),
+                         top=Side(style='thin'),
+                         bottom=Side(style='thin'))
+
+    for row in sheet.iter_rows():
+        for cell in row:
+            cell.border = thin_border
+
+
+def center_align_cells(sheet):
+    for col_idx, col in enumerate(sheet.iter_cols(min_row=1, max_row=1), start=1):
+        if col[0].value == "Tag":
+            for row in sheet.iter_rows(min_col=col_idx, max_col=col_idx, min_row=2, max_row=sheet.max_row):
+                for cell in row:
+                    cell.alignment = Alignment(horizontal='right', vertical='center')
+        else:
+            for row in sheet.iter_rows(min_col=col_idx, max_col=col_idx, min_row=2, max_row=sheet.max_row):
+                for cell in row:
+                    cell.alignment = Alignment(vertical='center')
+
+
+def process_and_save_sheets(queries, output_excel_path):
+    try:
+        data_dict = {}
+
+        for query in tqdm(queries, desc="Executing SQL Queries"):
+            data_dict[f"{query}_data"] = pd.read_sql(queries[query], engine)
+
+        with pd.ExcelWriter(output_excel_path, engine='xlsxwriter') as writer:
+            transformation_tasks = [
+                ('VPC', load_and_transform_vpc_data,
+                 [data_dict['vpc_data'], data_dict['igw_data'], data_dict['ngw_data']]),
+                ('VPC Endpoint', load_and_transform_vep_data, [data_dict['vep_data']]),
+                ('Peering Connection', load_and_transform_pc_data, [data_dict['pc_data']]),
+                ('Transit Gateway', load_and_transform_tgw_data, [data_dict['tgw_data']]),
+                ('Subnet', load_and_transform_subnet_data,
+                 [data_dict['subnet_data'], data_dict['rt_data'], data_dict['nacl_data']]),
+                ('Security Groups', load_and_transform_security_groups_data,
+                 [data_dict['sg_data'], data_dict['sgrule_data']]),
+                ('Network ACLs', load_and_transform_nacl_data, [data_dict['nacl_data']]),
+                ('EC2', load_and_transform_ec2_data, [data_dict['ec2_data'], data_dict['ebs_data']]),
+                ('ELB', load_and_transform_elb_data,
+                 [data_dict['alb_data'], data_dict['nlb_data'], data_dict['lbl_data']]),
+                ('Target Group', load_and_transform_target_group_data,
+                 [data_dict['tg_data'], data_dict['autoscaling_data'], data_dict['ec2_data']]),
+                ('Auto Scaling', load_and_transform_autoscaling_data, [data_dict['autoscaling_data']]),
+                ('ElastiCache', load_and_transform_elasticache_data, [data_dict['ec_data'], data_dict['ecrep_data']]),
+                ('CloudFront', load_and_transform_cloudfront_data, [data_dict['cloudfront_data']]),
+                ('S3', load_and_transform_s3_data, [data_dict['s3_data']]),
+                ('IAM Group', load_and_transform_iam_group_data, [data_dict['iamgroup_data']]),
+                ('IAM Role', load_and_transform_iam_role_data, [data_dict['iamrole_data']]),
+                ('IAM User', load_and_transform_iam_user_data, [data_dict['iamuser_data']]),
+                ('RDS', load_and_transform_rds_data,
+                 [data_dict['rdscluster_data'], data_dict['rdsinstance_data'], data_dict['cloudwatch_data']]),
+                ('DocumentDB', load_and_transform_docdb_data,
+                 [data_dict['docdbcluster_data'], data_dict['docdbinstance_data'], data_dict['cloudwatch_data']])
+            ]
+
+            for sheet_name, transform_function, params in tqdm(transformation_tasks,
+                                                               desc="Transforming and Saving Data"):
+                if not params[0].empty:
+                    transformed_data = transform_function(*params)
+                    transformed_data.to_excel(writer, sheet_name=sheet_name, index=False)
+
+        wb = openpyxl.load_workbook(output_excel_path)
+        for sheet in wb.sheetnames:
+            ws = wb[sheet]
+            adjust_column_widths(ws)
+            style_header(ws)
+            center_align_cells(ws)
+            apply_borders(ws)
+        wb.save(output_excel_path)
+        print(f"Excel file saved at {output_excel_path}")
+
+    except Exception as e:
+        print(f"__init__.py > process_and_save_sheets(): {e}")
 
 # Generate Excel files for each schema
 if __name__ == '__main__':
@@ -119,112 +237,4 @@ if __name__ == '__main__':
             "SELECT workspace_security_group_id AS security_groups FROM aws_workspaces_directory"
         ]
 
-
-        def adjust_column_widths(sheet):
-            for column_cells in sheet.columns:
-                max_length = 0
-                column = column_cells[0].column
-                column_letter = get_column_letter(column)
-                column_name = column_cells[0].value
-
-                for cell in column_cells:
-                    try:
-                        if cell.value:
-                            cell_value = str(cell.value).split("\n")
-                            max_cell_length = max(len(line) for line in cell_value)
-                            max_length = max(max_length, max_cell_length)
-                    except Exception as e:
-                        print(f"Error calculating length for cell {cell.coordinate}: {e}")
-
-                if column_name == 'Tag':
-                    adjusted_width = 50
-                elif column_name == 'Listener From':
-                    adjusted_width = 15
-                elif column_name == 'Listener To':
-                    adjusted_width = 30
-                else:
-                    adjusted_width = max_length + 2
-
-                sheet.column_dimensions[column_letter].width = adjusted_width
-
-
-        def style_header(sheet):
-            header_fill = PatternFill(start_color="334d1d", end_color="334d1d", fill_type="solid")
-            header_font = Font(color="FFFFFF")
-
-            for cell in sheet[1]:
-                cell.fill = header_fill
-                cell.font = header_font
-                cell.alignment = Alignment(vertical='center')
-
-
-        def apply_borders(sheet):
-            thin_border = Border(left=Side(style='thin'),
-                                 right=Side(style='thin'),
-                                 top=Side(style='thin'),
-                                 bottom=Side(style='thin'))
-
-            for row in sheet.iter_rows():
-                for cell in row:
-                    cell.border = thin_border
-
-
-        def center_align_cells(sheet):
-            for col_idx, col in enumerate(sheet.iter_cols(min_row=1, max_row=1), start=1):
-                if col[0].value == "Tag":
-                    for row in sheet.iter_rows(min_col=col_idx, max_col=col_idx, min_row=2, max_row=sheet.max_row):
-                        for cell in row:
-                            cell.alignment = Alignment(horizontal='right', vertical='center')
-                else:
-                    for row in sheet.iter_rows(min_col=col_idx, max_col=col_idx, min_row=2, max_row=sheet.max_row):
-                        for cell in row:
-                            cell.alignment = Alignment(vertical='center')
-
-
-        def process_and_save_sheets():
-            try:
-                data_dict = {}
-
-                for query in tqdm(queries, desc="Executing SQL Queries"):
-                    data_dict[f"{query}_data"] = pd.read_sql(queries[query], engine)
-
-                with pd.ExcelWriter(output_excel_path, engine='xlsxwriter') as writer:
-                    transformation_tasks = [
-                        ('VPC', load_and_transform_vpc_data, [data_dict['vpc_data'], data_dict['igw_data'], data_dict['ngw_data']]),
-                        ('VPC Endpoint', load_and_transform_vep_data, [data_dict['vep_data']]),
-                        ('Peering Connection', load_and_transform_pc_data, [data_dict['pc_data']]),
-                        ('Transit Gateway', load_and_transform_tgw_data, [data_dict['tgw_data']]),
-                        ('Subnet', load_and_transform_subnet_data, [data_dict['subnet_data'], data_dict['rt_data'], data_dict['nacl_data']]),
-                        ('Security Groups', load_and_transform_security_groups_data, [data_dict['sg_data'], data_dict['sgrule_data']]),
-                        ('Network ACLs', load_and_transform_nacl_data, [data_dict['nacl_data']]),
-                        ('EC2', load_and_transform_ec2_data, [data_dict['ec2_data'], data_dict['ebs_data']]),
-                        ('ELB', load_and_transform_elb_data, [data_dict['alb_data'], data_dict['nlb_data'], data_dict['lbl_data']]),
-                        ('Target Group', load_and_transform_target_group_data, [data_dict['tg_data'], data_dict['autoscaling_data'], data_dict['ec2_data']]),
-                        ('Auto Scaling', load_and_transform_autoscaling_data, [data_dict['autoscaling_data']]),
-                        ('ElastiCache', load_and_transform_elasticache_data, [data_dict['ec_data'], data_dict['ecrep_data']]),
-                        ('CloudFront', load_and_transform_cloudfront_data, [data_dict['cloudfront_data']]),
-                        ('S3', load_and_transform_s3_data, [data_dict['s3_data']]),
-                        ('IAM Group', load_and_transform_iam_group_data, [data_dict['iamgroup_data']]),
-                        ('IAM Role', load_and_transform_iam_role_data, [data_dict['iamrole_data']]),
-                        ('IAM User', load_and_transform_iam_user_data, [data_dict['iamuser_data']]),
-                        ('RDS', load_and_transform_rds_data, [data_dict['rdscluster_data'], data_dict['rdsinstance_data'], data_dict['cloudwatch_data']]),
-                        ('DocumentDB', load_and_transform_docdb_data, [data_dict['docdbcluster_data'], data_dict['docdbinstance_data'], data_dict['cloudwatch_data']])
-                    ]
-
-                    for sheet_name, transform_function, params in tqdm(transformation_tasks, desc="Transforming and Saving Data"):
-                        if not params[0].empty:
-                            transformed_data = transform_function(*params)
-                            transformed_data.to_excel(writer, sheet_name=sheet_name, index=False)
-
-                wb = openpyxl.load_workbook(output_excel_path)
-                for sheet in wb.sheetnames:
-                    ws = wb[sheet]
-                    adjust_column_widths(ws)
-                    style_header(ws)
-                    center_align_cells(ws)
-                    apply_borders(ws)
-                wb.save(output_excel_path)
-                print(f"Excel file saved at {output_excel_path}")
-
-            except Exception as e:
-                print(f"__init__.py > process_and_save_sheets(): {e}")
+        process_and_save_sheets(queries, output_excel_path)
