@@ -99,7 +99,7 @@ def transform_target_group_data(target_group_data,autoscaling_data, ec2_data):
             'Health Check Protocol': target_group_data['health_check_protocol'],
             'Health Check Timeout Seconds': target_group_data['health_check_timeout_seconds'],
             'Target Health States': target_group_data['target_health_descriptions'].apply(extract_target_health_states),
-            'AZ': target_group_data.apply(lambda row: extract_az(row['target_health_descriptions'], autoscaling_data, ec2_data), axis=1),
+            # 'AZ': target_group_data.apply(lambda row: extract_az(row['target_health_descriptions'], autoscaling_data, ec2_data), axis=1),
         })
 
         transformed_data = transformed_data.sort_values(by='Name', ascending=False)
