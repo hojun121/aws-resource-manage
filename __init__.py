@@ -189,8 +189,8 @@ def process_and_save_sheets(queries, output_excel_path):
 # Generate Excel files for each schema
 if __name__ == '__main__':
     for schema in schemas:
-        output_excel_path = os.path.join('/etc/inventory', f'{schema}_inventory_{today}.xlsx')
-        os.makedirs('/etc/inventory', exist_ok=True)
+        output_excel_path = os.path.join('inventory', f'{schema}_inventory_{today}.xlsx')
+        os.makedirs('inventory', exist_ok=True)
 
         queries = {
             'alb': f'SELECT * FROM {schema}.aws_ec2_application_load_balancer',
