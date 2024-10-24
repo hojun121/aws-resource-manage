@@ -184,8 +184,8 @@ if __name__ == '__main__':
         print(f"aws.spc File not found")
 
     for schema in schemas:
-        output_excel_path = os.path.join('inventory', f'{schema}_inventory_{today}.xlsx')
-        os.makedirs('inventory', exist_ok=True)
+        output_excel_path = os.path.join('/app/inventory', f'{schema}_inventory_{today}.xlsx')
+        os.makedirs('/app/inventory', exist_ok=True)
 
         queries = {
             'alb': f'SELECT * FROM {schema}.aws_ec2_application_load_balancer',
