@@ -6,6 +6,7 @@ import openpyxl
 from openpyxl.styles import Alignment, PatternFill, Font, Border, Side
 from openpyxl.utils import get_column_letter
 from sqlalchemy import create_engine
+from tqdm import tqdm
 
 from modules.vpc import load_and_transform_vpc_data
 from modules.tgw import load_and_transform_tgw_data
@@ -27,24 +28,38 @@ from modules.s3 import load_and_transform_s3_data
 from modules.tg import load_and_transform_target_group_data
 from modules.rds import load_and_transform_rds_data
 
-DB_URI = 'postgresql://steampipe:ebf2_4830_b346@localhost:9193/steampipe'
+# Prompt the user for PostgreSQL connection details
+host = input("Enter PostgreSQL host: ")
+port = input("Enter PostgreSQL port: ")
+username = input("Enter PostgreSQL username (default: steampipe): ") or "steampipe"
+password = input("Enter PostgreSQL password: ")
+db_name = input("Enter PostgreSQL database name (default: steampipe): ") or "steampipe"
+
+# Construct the database URI
+DB_URI = f'postgresql://{username}:{password}@{host}:{port}/{db_name}'
+
 try:
     engine = create_engine(DB_URI)
     connection = engine.connect()
     print("Connection successful.")
 
 except Exception as e:
-    print(f"Error occurred: {e}")
+    print("Please check your SSO or IAM permissions.")
     sys.exit(1)
 
-upload_folder = 'file/upload'
+# Prompt for schema name
+schema = input("Enter DB schema: ")
+
+# Prompt for output location
+s3_url = input("Enter S3 URL to save the file (default: download/{your_file.xlsx}): ")
+
+# Set the output path based on user input
 today = datetime.today().strftime('%y%m%d')
-os.makedirs('file/download', exist_ok=True)
-
-# Type Your DB Schema OR Set your Environment Path Here
-schema = "duclo"
-
-output_excel_path = os.path.join('file/download', f'{schema}_inventory_{today}.xlsx')
+if s3_url:
+    output_excel_path = os.path.join(s3_url, f'{schema}_inventory_{today}.xlsx')
+else:
+    os.makedirs('download', exist_ok=True)
+    output_excel_path = os.path.join('download', f'{schema}_inventory_{today}.xlsx')
 
 queries = {
     'alb': f'SELECT * FROM {schema}.aws_ec2_application_load_balancer',
@@ -79,128 +94,32 @@ queries = {
     'vpc': f'SELECT * FROM {schema}.aws_vpc',
 }
 
-
-def process_and_save_sheets():
-    try:
-        alb_data = pd.read_sql(queries['alb'], engine)
-        autoscaling_data = pd.read_sql(queries['autoscaling'], engine)
-        cloudfront_data = pd.read_sql(queries['cloudfront'], engine)
-        cloudwatch_data = pd.read_sql(queries['cloudwatch'], engine)
-        docdbcluster_data = pd.read_sql(queries['docdbcluster'], engine)
-        docdbinstance_data = pd.read_sql(queries['docdbinstance'], engine)
-        ec_data = pd.read_sql(queries['ec'], engine)
-        ecrep_data = pd.read_sql(queries['ecrep'], engine)
-        ec2_data = pd.read_sql(queries['ec2'], engine)
-        ebs_data = pd.read_sql(queries['ebs'], engine)
-        iamgroup_data = pd.read_sql(queries['iamgroup'], engine)
-        iamrole_data = pd.read_sql(queries['iamrole'], engine)
-        iamuser_data = pd.read_sql(queries['iamuser'], engine)
-        igw_data = pd.read_sql(queries['igw'], engine)
-        lbl_data = pd.read_sql(queries['lbl'], engine)
-        ngw_data = pd.read_sql(queries['ngw'], engine)
-        nlb_data = pd.read_sql(queries['nlb'], engine)
-        nacl_data = pd.read_sql(queries['nacl'], engine)
-        pc_data = pd.read_sql(queries['pc'], engine)
-        rdscluster_data = pd.read_sql(queries['rdscluster'], engine)
-        rdsinstance_data = pd.read_sql(queries['rdsinstance'], engine)
-        rt_data = pd.read_sql(queries['rt'], engine)
-        s3_data = pd.read_sql(queries['s3'], engine)
-        sg_data = pd.read_sql(queries['sg'], engine)
-        sgrule_data = pd.read_sql(queries['sgrule'], engine)
-        subnet_data = pd.read_sql(queries['subnet'], engine)
-        tg_data = pd.read_sql(queries['tg'], engine)
-        tgw_data = pd.read_sql(queries['tgw'], engine)
-        vep_data = pd.read_sql(queries['vep'], engine)
-        vpc_data = pd.read_sql(queries['vpc'], engine)
-
-        with pd.ExcelWriter(output_excel_path, engine='xlsxwriter') as writer:
-            if not vpc_data.empty:
-                transformed_data = load_and_transform_vpc_data(vpc_data, igw_data, ngw_data)
-                transformed_data.to_excel(writer, sheet_name='VPC', index=False)
-
-            if not vep_data.empty:
-                transformed_data = load_and_transform_vep_data(vep_data)
-                transformed_data.to_excel(writer, sheet_name='VPC Endpoint', index=False)
-
-            if not pc_data.empty:
-                transformed_data = load_and_transform_pc_data(pc_data)
-                transformed_data.to_excel(writer, sheet_name='Peering Connection', index=False)
-
-            if not tgw_data.empty:
-                transformed_data = load_and_transform_tgw_data(tgw_data)
-                transformed_data.to_excel(writer, sheet_name='Transit Gateway', index=False)
-
-            if not subnet_data.empty:
-                transformed_data = load_and_transform_subnet_data(subnet_data, rt_data, nacl_data)
-                transformed_data.to_excel(writer, sheet_name='Subnet', index=False)
-
-            if not sg_data.empty:
-                transformed_data = load_and_transform_security_groups_data(sg_data, sgrule_data)
-                transformed_data.to_excel(writer, sheet_name='Security Groups', index=False)
-
-            if not nacl_data.empty:
-                transformed_data = load_and_transform_nacl_data(nacl_data)
-                transformed_data.to_excel(writer, sheet_name='Network ACLs', index=False)
-
-            if not ec2_data.empty:
-                transformed_data = load_and_transform_ec2_data(ec2_data, ebs_data)
-                transformed_data.to_excel(writer, sheet_name='EC2', index=False)
-
-            if not alb_data.empty or not nlb_data.empty:
-                transformed_data = load_and_transform_elb_data(alb_data, nlb_data, lbl_data)
-                transformed_data.to_excel(writer, sheet_name='ELB', index=False)
-
-            if not tg_data.empty:
-                transformed_data = load_and_transform_target_group_data(tg_data, autoscaling_data, ec2_data)
-                transformed_data.to_excel(writer, sheet_name='Target Group', index=False)
-
-            if not autoscaling_data.empty:
-                transformed_data = load_and_transform_autoscaling_data(autoscaling_data)
-                transformed_data.to_excel(writer, sheet_name='Auto Scaling', index=False)
-
-            if not ec_data.empty:
-                transformed_data = load_and_transform_elasticache_data(ec_data, ecrep_data)
-                transformed_data.to_excel(writer, sheet_name='ElastiCache', index=False)
-
-            if not cloudfront_data.empty:
-                transformed_data = load_and_transform_cloudfront_data(cloudfront_data)
-                transformed_data.to_excel(writer, sheet_name='CloudFront', index=False)
-
-            if not s3_data.empty:
-                transformed_data = load_and_transform_s3_data(s3_data)
-                transformed_data.to_excel(writer, sheet_name='S3', index=False)
-
-            if not iamgroup_data.empty:
-                transformed_data = load_and_transform_iam_group_data(iamgroup_data)
-                transformed_data.to_excel(writer, sheet_name='IAM Group', index=False)
-
-            if not iamrole_data.empty:
-                transformed_data = load_and_transform_iam_role_data(iamrole_data)
-                transformed_data.to_excel(writer, sheet_name='IAM Role', index=False)
-
-            if not iamuser_data.empty:
-                transformed_data = load_and_transform_iam_user_data(iamuser_data)
-                transformed_data.to_excel(writer, sheet_name='IAM User', index=False)
-
-            if not rdscluster_data.empty and not rdsinstance_data.empty:
-                transformed_data = load_and_transform_rds_data(rdscluster_data, rdsinstance_data, cloudwatch_data)
-                transformed_data.to_excel(writer, sheet_name='RDS', index=False)
-
-            if not docdbcluster_data.empty and not docdbinstance_data.empty:
-                transformed_data = load_and_transform_docdb_data(docdbcluster_data, docdbinstance_data, cloudwatch_data)
-                transformed_data.to_excel(writer, sheet_name='DocumentDB', index=False)
-
-        wb = openpyxl.load_workbook(output_excel_path)
-        for sheet in wb.sheetnames:
-            ws = wb[sheet]
-            adjust_column_widths(ws)
-            style_header(ws)
-            center_align_cells(ws)
-            apply_borders(ws)
-        wb.save(output_excel_path)
-
-    except Exception as e:
-        print(f"__init__.py > process_and_save_sheets(): {e}")
+sg_queries = [
+    "SELECT security_groups AS security_groups FROM aws_dax_cluster",
+    "SELECT security_groups AS security_groups FROM aws_ec2_network_load_balancer",
+    "SELECT security_groups AS security_groups FROM aws_ec2_launch_configuration",
+    "SELECT security_groups AS security_groups FROM aws_ec2_instance",
+    "SELECT security_groups AS security_groups FROM aws_ec2_classic_load_balancer",
+    "SELECT security_groups AS security_groups FROM aws_ec2_application_load_balancer",
+    "SELECT security_groups AS security_groups FROM aws_sagemaker_notebook_instance",
+    "SELECT security_groups AS security_groups FROM aws_elasticache_cluster",
+    "SELECT security_groups AS security_groups FROM aws_mq_broker",
+    "SELECT security_groups AS security_groups FROM aws_efs_mount_target",
+    "SELECT security_groups AS security_groups FROM aws_ec2_gateway_load_balancer",
+    "SELECT vpc_security_groups AS security_groups FROM aws_dms_replication_instance",
+    "SELECT vpc_security_groups AS security_groups FROM aws_redshift_cluster",
+    "SELECT vpc_security_groups AS security_groups FROM aws_rds_db_instance",
+    "SELECT vpc_security_groups AS security_groups FROM aws_docdb_cluster_instance",
+    "SELECT vpc_security_groups AS security_groups FROM aws_rds_db_cluster",
+    "SELECT vpc_security_groups AS security_groups FROM aws_docdb_cluster",
+    "SELECT vpc_security_groups AS security_groups FROM aws_neptune_db_cluster",
+    "SELECT vpc_security_group_ids AS security_groups FROM aws_lambda_version",
+    "SELECT vpc_security_group_ids AS security_groups FROM aws_rds_db_proxy",
+    "SELECT vpc_security_group_ids AS security_groups FROM aws_lambda_function",
+    "SELECT resources_vpc_config AS security_groups FROM aws_eks_cluster",
+    "SELECT vpc_settings AS security_groups FROM aws_directory_service_directory",
+    "SELECT workspace_security_group_id AS security_groups FROM aws_workspaces_directory"
+]
 
 
 def adjust_column_widths(sheet):
@@ -230,6 +149,7 @@ def adjust_column_widths(sheet):
 
         sheet.column_dimensions[column_letter].width = adjusted_width
 
+
 def style_header(sheet):
     header_fill = PatternFill(start_color="334d1d", end_color="334d1d", fill_type="solid")
     header_font = Font(color="FFFFFF")
@@ -239,9 +159,12 @@ def style_header(sheet):
         cell.font = header_font
         cell.alignment = Alignment(vertical='center')
 
+
 def apply_borders(sheet):
-    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'),
-                         top=Side(style='thin'), bottom=Side(style='thin'))
+    thin_border = Border(left=Side(style='thin'),
+                         right=Side(style='thin'),
+                         top=Side(style='thin'),
+                         bottom=Side(style='thin'))
 
     for row in sheet.iter_rows():
         for cell in row:
@@ -258,6 +181,54 @@ def center_align_cells(sheet):
             for row in sheet.iter_rows(min_col=col_idx, max_col=col_idx, min_row=2, max_row=sheet.max_row):
                 for cell in row:
                     cell.alignment = Alignment(vertical='center')
+
+
+def process_and_save_sheets():
+    try:
+        data_dict = {}
+
+        for query in tqdm(queries, desc="Executing SQL Queries"):
+            data_dict[f"{query}_data"] = pd.read_sql(queries[query], engine)
+
+        with pd.ExcelWriter(output_excel_path, engine='xlsxwriter') as writer:
+            transformation_tasks = [
+                ('VPC', load_and_transform_vpc_data, [data_dict['vpc_data'], data_dict['igw_data'], data_dict['ngw_data']]),
+                ('VPC Endpoint', load_and_transform_vep_data, [data_dict['vep_data']]),
+                ('Peering Connection', load_and_transform_pc_data, [data_dict['pc_data']]),
+                ('Transit Gateway', load_and_transform_tgw_data, [data_dict['tgw_data']]),
+                ('Subnet', load_and_transform_subnet_data, [data_dict['subnet_data'], data_dict['rt_data'], data_dict['nacl_data']]),
+                ('Security Groups', load_and_transform_security_groups_data, [data_dict['sg_data'], data_dict['sgrule_data']]),
+                ('Network ACLs', load_and_transform_nacl_data, [data_dict['nacl_data']]),
+                ('EC2', load_and_transform_ec2_data, [data_dict['ec2_data'], data_dict['ebs_data']]),
+                ('ELB', load_and_transform_elb_data, [data_dict['alb_data'], data_dict['nlb_data'], data_dict['lbl_data']]),
+                ('Target Group', load_and_transform_target_group_data, [data_dict['tg_data'], data_dict['autoscaling_data'], data_dict['ec2_data']]),
+                ('Auto Scaling', load_and_transform_autoscaling_data, [data_dict['autoscaling_data']]),
+                ('ElastiCache', load_and_transform_elasticache_data, [data_dict['ec_data'], data_dict['ecrep_data']]),
+                ('CloudFront', load_and_transform_cloudfront_data, [data_dict['cloudfront_data']]),
+                ('S3', load_and_transform_s3_data, [data_dict['s3_data']]),
+                ('IAM Group', load_and_transform_iam_group_data, [data_dict['iamgroup_data']]),
+                ('IAM Role', load_and_transform_iam_role_data, [data_dict['iamrole_data']]),
+                ('IAM User', load_and_transform_iam_user_data, [data_dict['iamuser_data']]),
+                ('RDS', load_and_transform_rds_data, [data_dict['rdscluster_data'], data_dict['rdsinstance_data'], data_dict['cloudwatch_data']]),
+                ('DocumentDB', load_and_transform_docdb_data, [data_dict['docdbcluster_data'], data_dict['docdbinstance_data'], data_dict['cloudwatch_data']])
+            ]
+
+            for sheet_name, transform_function, params in tqdm(transformation_tasks, desc="Transforming and Saving Data"):
+                if not params[0].empty:
+                    transformed_data = transform_function(*params)
+                    transformed_data.to_excel(writer, sheet_name=sheet_name, index=False)
+
+        wb = openpyxl.load_workbook(output_excel_path)
+        for sheet in wb.sheetnames:
+            ws = wb[sheet]
+            adjust_column_widths(ws)
+            style_header(ws)
+            center_align_cells(ws)
+            apply_borders(ws)
+        wb.save(output_excel_path)
+
+    except Exception as e:
+        print(f"__init__.py > process_and_save_sheets(): {e}")
 
 
 if __name__ == '__main__':
