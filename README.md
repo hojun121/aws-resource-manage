@@ -23,7 +23,7 @@ docker build -t {{imageName}} .
 ```
 ### Container Run
 ```bash
-docker run --rm -it -v {{Your Host Directory}}:/app/inventory aws-inventory sh extract_inventory.sh
+docker run --rm -it -v {{Your Host Directory}}:/app/inventory {{imageName}} sh extract_inventory.sh
 ```
 
 The extracted inventory will be created in {{Your Host Directory}}.
