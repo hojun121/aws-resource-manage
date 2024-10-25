@@ -3,7 +3,6 @@ from datetime import datetime
 import time
 import os
 import re
-import subprocess
 import pandas as pd
 import openpyxl
 from openpyxl.styles import Alignment, PatternFill, Font, Border, Side
@@ -31,10 +30,13 @@ from modules.s3 import load_and_transform_s3_data
 from modules.tg import load_and_transform_target_group_data
 from modules.rds import load_and_transform_rds_data
 
+if len(sys.argv) < 2 or sys.argv[1] == "None":
+    print("No input or 'None' provided. Exiting the program.")
+    sys.exit(1)
+
+password = sys.argv[1]
+
 # Construct the database URI
-password = subprocess.check_output(
-            "steampipe service start --show-password | grep 'Password:' | awk '{print $2}'",
-            shell=True, text=True).strip()
 DB_URI = f'postgresql://steampipe:{password}@127.0.0.1:9193/steampipe'
 print(DB_URI)
 

@@ -9,7 +9,7 @@ RUN apt-get update -y \
 FROM debian:12-slim
 USER root
 RUN apt-get update -y \
- && apt-get install -y sudo curl unzip wget \
+ && apt-get install -y sudo curl less unzip wget \
  && curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
  && unzip awscliv2.zip \
  && ./aws/install \
@@ -27,4 +27,5 @@ WORKDIR /app
 RUN steampipe plugin install steampipe aws \
  && sudo mkdir inventory \
  && sudo chmod +w inventory
-COPY --from=builder dist/__init__ /app/runable_python_binary.exe
+COPY --from=builder dist/__init__ /app/runable_python_binary
+COPY --from=builder extract_inventory.sh /app/extract_inventory.sh
